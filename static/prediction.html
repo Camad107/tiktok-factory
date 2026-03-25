@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Prédiction 4 Images</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Segoe UI', sans-serif; background: #0a0a18; color: #e0e0f0; height: 100vh; display: flex; flex-direction: column; }
+
+header { background: #12112a; border-bottom: 1px solid #2a1a4e; padding: 12px 20px; display: flex; align-items: center; gap: 16px; }
+header h1 { font-size: 1.1rem; background: linear-gradient(90deg,#fbbf24,#f59e0b,#c084fc); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+.hdr-status { font-size: 0.72rem; color: #6b7280; margin-left: auto; }
+.hdr-status.ok { color: #10b981; }
+
+.layout { display: flex; flex: 1; overflow: hidden; }
+
+.btn-new { padding: 7px 14px; background: linear-gradient(135deg,#f59e0b,#d97706); color: #fff; border: none; border-radius: 7px; font-size: 0.82rem; font-weight: 600; cursor: pointer; }
+.btn-new:hover { filter: brightness(1.15); }
+.job-item { padding:10px 14px; cursor:pointer; border-bottom:1px solid #1e1e3a; font-size:0.78rem; }
+.job-item:hover { background:#1a1a35; }
+.job-item.active { background:#1e1040; color:#fbbf24; }
+.s-idle { color: #6b7280; } .s-running { color: #f59e0b; } .s-done { color: #10b981; } .s-error { color: #ef4444; }
+
+.main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+.pipeline-strip { display: flex; align-items: stretch; padding: 16px 20px; gap: 0; border-bottom: 1px solid #1e1e3a; background: #0f0f22; flex-shrink: 0; overflow-x: auto; }
+.node { width: 190px; background: #16162e; border: 2px solid #2a2a4a; border-radius: 10px; flex-shrink: 0; cursor: pointer; transition: all 0.2s; overflow: hidden; }
+.node:hover { border-color: #8a6a2a; }
+.node.active { border-color: #fbbf24; box-shadow: 0 0 0 3px rgba(251,191,36,0.15); }
+.node.s-running { border-color: #f59e0b; box-shadow: 0 0 16px rgba(245,158,11,0.2); }
+.node.s-done { border-color: #10b981; }
+.node.s-error { border-color: #ef4444; }
+.node-head { padding: 9px 11px 7px; background: #1a1a38; display: flex; align-items: center; gap: 8px; }
+.node-icon { font-size: 1.2rem; }
+.node-title { font-size: 0.78rem; font-weight: 600; }
+.node-sub { font-size: 0.62rem; color: #7070a0; margin-top: 1px; }
+.node-body { padding: 8px 11px; }
+.badge { display: inline-flex; align-items: center; gap: 5px; font-size: 0.68rem; padding: 2px 7px; border-radius: 20px; font-weight: 500; }
+.b-pending { background:#1e1e38; color:#6b7280; }
+.b-running { background:#2d1f00; color:#f59e0b; }
+.b-done { background:#063020; color:#10b981; }
+.b-error { background:#2d0a0a; color:#ef4444; }
+.node-preview { font-size: 0.65rem; color: #7070a0; margin-top: 6px; line-height: 1.4; max-height: 40px; overflow: hidden; }
+.arrow { width: 30px; display: flex; align-items: center; justify-content: center; color: #2a2a5a; font-size: 1.1rem; flex-shrink: 0; }
+.arrow.lit { color: #f59e0b; }
+
+.detail { flex: 1; overflow: hidden; display: flex; }
+.detail-left { flex: 1; overflow-y: auto; padding: 20px; }
+
+/* Drawer paramètres */
+.drawer-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:200; }
+.drawer-overlay.open { display:block; }
+.drawer { position:fixed; bottom:0; left:0; right:0; background:#12112a; border-top:2px solid #f59e0b; border-radius:16px 16px 0 0; z-index:201; transform:translateY(100%); transition:transform 0.3s ease; max-height:70vh; display:flex; flex-direction:column; }
+.drawer.open { transform:translateY(0); }
+.drawer-header { padding:14px 20px; display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid #1e1e3a; flex-shrink:0; }
+.drawer-title { font-size:0.85rem; font-weight:600; color:#fbbf24; }
+.drawer-close { background:none; border:none; color:#6b7280; font-size:1.4rem; cursor:pointer; padding:0 4px; }
+.drawer-close:hover { color:#e0e0f0; }
+.drawer-body { overflow-y:auto; padding:16px 20px 24px; }
+
+.agent-header { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+.agent-title { font-size: 1.1rem; font-weight: 700; }
+.agent-desc { font-size: 0.8rem; color: #7070a0; margin-top: 2px; }
+.actions { display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; }
+.btn { padding: 8px 16px; border-radius: 7px; border: none; font-size: 0.82rem; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: all 0.15s; }
+.btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.btn-primary { background: #d97706; color: #fff; }
+.btn-primary:hover:not(:disabled) { background: #b45309; }
+.btn-secondary { background: #1e1e38; color: #c0c0e0; border: 1px solid #2a2a4a; }
+.btn-secondary:hover:not(:disabled) { background: #2a2a4a; }
+
+.output-section { margin-bottom: 20px; }
+.output-section h3 { font-size: 0.75rem; color: #7070a0; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px; }
+
+/* Contenu */
+.hook-box { background: #1a1005; border: 1px solid #92400e; border-radius: 8px; padding: 14px; font-size: 1rem; font-weight: 700; color: #fbbf24; margin-bottom: 14px; text-align: center; }
+.symbols-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-bottom: 14px; }
+.sym-box { background: #0d0d20; border: 1px solid #2a2a4a; border-radius: 10px; padding: 14px; text-align: center; }
+.sym-icon { font-size: 2.5rem; margin-bottom: 6px; }
+.sym-name { font-size: 0.75rem; color: #c084fc; font-weight: 600; margin-bottom: 6px; }
+.sym-title { font-size: 0.82rem; color: #fbbf24; font-weight: 700; margin-bottom: 4px; }
+.sym-pred { font-size: 0.72rem; color: #9090b0; line-height: 1.5; }
+.sym-energy { display: inline-block; margin-top: 6px; padding: 2px 8px; background: #1e103a; color: #c084fc; border-radius: 20px; font-size: 0.65rem; }
+.cta-box { background: #0d0d20; border: 1px solid #2a2a4a; border-radius: 8px; padding: 10px 14px; font-size: 0.82rem; color: #9090b0; font-style: italic; text-align: center; }
+
+/* Images */
+.images-carousel { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+.img-box { border-radius: 8px; overflow: hidden; background: #0d0d20; border: 1px solid #2a2a4a; cursor: zoom-in; }
+.img-box img { width: 100%; aspect-ratio: 9/16; object-fit: cover; display: block; transition: transform 0.2s; }
+.img-box:hover img { transform: scale(1.03); }
+.img-label { font-size: 0.65rem; color: #6b7280; padding: 4px 8px; text-align: center; }
+
+/* Params dans drawer */
+.param-group { margin-bottom: 14px; }
+.param-label { font-size: 0.72rem; color: #9090b0; margin-bottom: 5px; }
+.param-input, .param-textarea { width: 100%; background: #0d0d20; border: 1px solid #2a2a4a; border-radius: 6px; color: #d0d0f0; font-size: 0.75rem; padding: 7px 10px; font-family: monospace; outline: none; resize: vertical; }
+.param-input:focus, .param-textarea:focus { border-color: #f59e0b; }
+.param-textarea { min-height: 70px; }
+.params-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+.error-box { background: #1a0505; border: 1px solid #7f1d1d; border-radius: 8px; padding: 14px; font-family: monospace; font-size: 0.7rem; color: #fca5a5; white-space: pre-wrap; overflow-x: auto; max-height: 300px; overflow-y: auto; }
+.empty { text-align: center; padding: 60px 20px; color: #3a3a60; }
+.spin { display: inline-block; width: 10px; height: 10px; border: 2px solid currentColor; border-top-color: transparent; border-radius: 50%; animation: spin 0.7s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Lightbox */
+.lightbox { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.92); z-index:1000; align-items:center; justify-content:center; cursor:zoom-out; }
+.lightbox.open { display:flex; }
+.lightbox img { max-height:92vh; max-width:50vw; border-radius:10px; }
+.lightbox-close { position:absolute; top:16px; right:20px; font-size:1.8rem; color:#fff; cursor:pointer; opacity:0.7; }
+</style>
+</head>
+<body>
+
+<div class="lightbox" id="lightbox" onclick="closeLightbox()">
+  <span class="lightbox-close">✕</span>
+  <img id="lightbox-img" src="">
+</div>
+
+<header>
+  <a href="javascript:void(0)" onclick="goHome()" style="font-size:0.75rem;color:#5a5a80;text-decoration:none;border:1px solid #2a2a4a;padding:4px 10px;border-radius:6px">← Workflows</a>
+  <h1>✨ Prédiction 4 Images</h1>
+  <button class="btn-new" onclick="newJob()" style="margin-left:auto">＋ Nouvelle session</button>
+  <div id="sessions-btn" style="position:relative;margin-left:8px">
+    <button onclick="toggleSessionsList()" style="background:#1e1e38;border:1px solid #2a2a4a;color:#c0c0e0;padding:7px 14px;border-radius:7px;font-size:0.82rem;cursor:pointer">Sessions ▾</button>
+    <div id="sessions-dropdown" style="display:none;position:absolute;top:110%;right:0;background:#12112a;border:1px solid #2a2a4a;border-radius:8px;min-width:220px;z-index:100;max-height:300px;overflow-y:auto"><div id="jobs-list"></div></div>
+  </div>
+  <span id="hdr-status" class="hdr-status" style="margin-left:8px">API...</span>
+</header>
+
+<div class="layout">
+  
+
+  <div class="main">
+    <div class="pipeline-strip" id="pipeline-strip">
+      <div style="color:#3a3a60;font-size:0.8rem;padding:20px">Chargement...</div>
+    </div>
+    <div class="detail">
+      <div class="detail-left" id="detail-left"><div class="empty">🃏 Sélectionne un agent</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- Drawer paramètres -->
+<div class="drawer-overlay" id="drawer-overlay" onclick="closeDrawer()"></div>
+<div class="drawer" id="drawer">
+  <div class="drawer-header">
+    <span class="drawer-title">⚙ Paramètres</span>
+    <button class="drawer-close" onclick="closeDrawer()">✕</button>
+  </div>
+  <div class="drawer-body" id="drawer-body"></div>
+</div>
+
+<div style="display:none">
+  </div>
+</div>
+
+<script>
+const API = location.hostname.includes('factorytiktok') ? '' : (location.pathname.match(/^(\/tiktok)/) || ['',''])[1];
+const BASE = `${API}/api/pred`;
+
+const AGENTS = [
+  { id:'content',       icon:'🧙', title:'Contenu',   sub:'Hook + 3 symboles + prédictions', desc:'Génère le hook, les 3 symboles et les prédictions courtes.' },
+  { id:'image_prompts', icon:'✍️',  title:'Prompts',   sub:'Prompts cohérents × 4',           desc:'Génère 4 prompts avec style commun pour la cohérence visuelle.' },
+  { id:'images',        icon:'🖼️', title:'Images',    sub:'Génération + texte Pillow',        desc:'Génère 4 images via Fal.ai et superpose le texte avec Pillow.' },
+  { id:'publish',       icon:'📲', title:'Publication', sub:'Description IA + inbox TikTok',    desc:'Génère la description et les hashtags via Claude, envoie dans l\'inbox TikTok.' },
+];
+
+let currentJobId = null;
+let currentAgent = null;
+let pollTimer = null;
+
+async function init() {
+  await checkApi();
+  setInterval(checkApi, 30000);
+  const r = await fetch(`${BASE}/jobs`);
+  const d = await r.json();
+  if (d.jobs && d.jobs.length > 0) {
+    await selectJob(d.jobs[0].id);
+  } else {
+    await newJob();
+  }
+}
+
+async function checkApi() {
+  try {
+    const r = await fetch(`${API}/api/ping`);
+    const d = await r.json();
+    const el = document.getElementById('hdr-status');
+    el.textContent = `API OK • Fal.ai ${d.fal_configured ? '✓' : '✗'}`;
+    el.className = 'hdr-status ok';
+  } catch {
+    document.getElementById('hdr-status').textContent = 'API hors ligne';
+  }
+}
+
+async function newJob() {
+  const r = await fetch(`${BASE}/jobs`, { method:'POST' });
+  const d = await r.json();
+  await selectJob(d.job_id);
+}
+
+
+function goHome() {
+  location.href = location.hostname.includes('factorytiktok') ? '/' : '/tiktok/';
+}
+
+function toggleSessionsList() {
+  const d = document.getElementById('sessions-dropdown');
+  d.style.display = d.style.display === 'none' ? 'block' : 'none';
+}
+
+// Close dropdown on outside click
+document.addEventListener('click', e => {
+  const btn = document.getElementById('sessions-btn');
+  if (btn && !btn.contains(e.target)) {
+    const d = document.getElementById('sessions-dropdown');
+    if (d) d.style.display = 'none';
+  }
+});
+
+async function loadJobs() {
+  const r = await fetch(`${BASE}/jobs`);
+  const d = await r.json();
+  const list = document.getElementById('jobs-list');
+  if (!d.jobs || !d.jobs.length) {
+    list.innerHTML = '<div style="padding:16px;text-align:center;color:#3a3a60;font-size:0.75rem">Aucune session</div>';
+    return;
+  }
+  list.innerHTML = d.jobs.map(j => `
+    <div class="job-item ${j.id===currentJobId?'active':''}" onclick="selectJob('${j.id}')">
+      <div class="job-id">${j.id.replace('pred_','')}</div>
+      <div class="job-status s-${j.status}">${statusLabel(j.status)}</div>
+    </div>`).join('');
+}
+
+function statusLabel(s) {
+  return {idle:'⏸ Prêt',running:'⟳ En cours',done:'✓ Terminé',error:'✗ Erreur',pending:'…'}[s]||s;
+}
+
+async function selectJob(jobId) {
+  currentJobId = jobId;
+  currentAgent = 'content';
+  await loadJobs();
+  await refreshAndRender();
+  startPoll();
+}
+
+function renderPipeline(job) {
+  const strip = document.getElementById('pipeline-strip');
+  if (!job) { strip.innerHTML = ''; return; }
+  let html = '';
+  AGENTS.forEach((ag, i) => {
+    const state = job.agents[ag.id] || {};
+    const st = state.status || 'pending';
+    const preview = getPreview(ag.id, state.result);
+    html += `
+      <div class="node ${st!=='pending'?'s-'+st:''} ${currentAgent===ag.id?'active':''}" onclick="selectAgent('${ag.id}')" id="node-${ag.id}">
+        <div class="node-head"><span class="node-icon">${ag.icon}</span>
+          <div><div class="node-title">${ag.title}</div><div class="node-sub">${ag.sub}</div></div>
+        </div>
+        <div class="node-body">
+          <span class="badge b-${st}">${badgeHtml(st)}</span>
+          ${preview?`<div class="node-preview">${preview}</div>`:''}
+        </div>
+      </div>
+      ${i<AGENTS.length-1?`<div class="arrow ${st==='done'?'lit':''}">→</div>`:''}`;
+  });
+  strip.innerHTML = html;
+}
+
+function badgeHtml(st) {
+  if (st==='running') return '<span class="spin"></span> En cours';
+  return {pending:'⏳ En attente',done:'✓ Fait',error:'✗ Erreur'}[st]||st;
+}
+
+function getPreview(id, result) {
+  if (!result) return '';
+  if (id==='content') return `<strong>${result.hook||''}</strong>`;
+  if (id==='image_prompts') return `Style: ${(result.style_base||'').substring(0,40)}...`;
+  if (id==='images') return `${Object.keys(result.images||{}).length} images`;
+  if (id==='publish') return result.publish?.status==='sent_to_inbox' ? '✓ Envoyé en inbox' : (result.title||'');
+  return '';
+}
+
+async function selectAgent(agentId) {
+  currentAgent = agentId;
+  if (!currentJobId) return;
+  const job = await fetchJob(currentJobId);
+  renderPipeline(job);
+  renderDetail(agentId, job);
+}
+
+function renderDetail(agentId, job) {
+  const ag = AGENTS.find(a => a.id === agentId);
+  const state = job.agents[agentId] || {};
+  const st = state.status || 'pending';
+  const isRunning = st === 'running';
+  const left = document.getElementById('detail-left');
+
+  // Préparer les params pour le drawer
+  const paramFields = buildParams(agentId, job);
+  const hasParams = paramFields && !paramFields.includes('Lance d\'abord') && !paramFields.includes('automatiquement');
+
+  let actionsHtml = `<div class="actions">
+    <button class="btn btn-primary" onclick="runAgent('${agentId}')" ${isRunning?'disabled':''}>
+      ${isRunning?'<span class="spin"></span>':'▶'} Lancer
+    </button>`;
+  if (agentId === 'content') {
+    actionsHtml += `<button class="btn btn-secondary" onclick="runAll()" ${isRunning?'disabled':''}>▶▶ Tout lancer</button>`;
+  }
+  if (st==='done'||st==='error') {
+    actionsHtml += `<button class="btn btn-secondary" onclick="runAgent('${agentId}')">↻ Relancer</button>`;
+  }
+  if (hasParams) {
+    actionsHtml += `<button class="btn btn-secondary" onclick="openDrawer('${agentId}')">⚙ Paramètres</button>`;
+  }
+  actionsHtml += `</div>`;
+
+  let outputHtml = '';
+  if (st==='error' && state.error) {
+    outputHtml = `<div class="error-box">${esc(state.error)}</div>`;
+  } else if (st==='done' && state.result) {
+    outputHtml = renderOutput(agentId, state.result);
+  }
+
+  left.innerHTML = `
+    <div class="agent-header">
+      <span style="font-size:2rem">${ag.icon}</span>
+      <div><div class="agent-title">${ag.title}</div><div class="agent-desc">${ag.desc}</div></div>
+      <span class="badge b-${st}" style="margin-left:auto">${badgeHtml(st)}</span>
+    </div>
+    ${actionsHtml}
+    ${outputHtml||`<div style="color:#4a4a70;font-size:0.85rem">${st==='pending'?'Lance cet agent pour voir les résultats.':''}</div>`}`;
+}
+
+function renderOutput(agentId, result) {
+  if (agentId === 'publish') {
+    const pub = result.publish || {};
+    const statusColor = pub.status === 'sent_to_inbox' ? '#4ade80' : '#f87171';
+    const statusIcon = pub.status === 'sent_to_inbox' ? '✓' : '✗';
+    return `
+      <div style="background:#0d0d20;border:1px solid #2a2a4a;border-radius:10px;padding:14px;margin-bottom:12px">
+        <div style="font-size:0.68rem;color:#a78bfa;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px">Titre</div>
+        <div style="font-size:0.9rem;font-weight:600;color:#fbbf24">${esc(result.title||'')}</div>
+      </div>
+      <div style="background:#0d0d20;border:1px solid #2a2a4a;border-radius:10px;padding:14px;margin-bottom:12px">
+        <div style="font-size:0.68rem;color:#a78bfa;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px">Description</div>
+        <div style="font-size:0.82rem;color:#d0d0e8;line-height:1.6">${esc(result.description||'')}</div>
+      </div>
+      <div style="background:#0d0d20;border:1px solid #2a2a4a;border-radius:10px;padding:14px;margin-bottom:12px">
+        <div style="font-size:0.68rem;color:#a78bfa;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px">Hashtags</div>
+        <div style="font-size:0.8rem;color:#60a5fa">${esc(result.hashtags||'')}</div>
+      </div>
+      <div style="background:#0d0d20;border:1px solid ${statusColor}40;border-radius:10px;padding:14px">
+        <div style="font-size:0.68rem;color:#a78bfa;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px">Publication TikTok</div>
+        <div style="font-size:0.85rem;color:${statusColor}">${statusIcon} ${esc(pub.message||pub.status||'')}</div>
+        ${pub.publish_id ? `<div style="font-size:0.7rem;color:#6060a0;margin-top:4px">ID : ${esc(pub.publish_id)}</div>` : ''}
+      </div>`;
+  }
+  if (agentId === 'content') {
+    let h = `<div class="hook-box">✨ ${result.hook}</div>`;
+    h += `<div class="symbols-grid">`;
+    (result.symbols||[]).forEach(s => {
+      h += `<div class="sym-box">
+        <div class="sym-icon">${s.symbol}</div>
+        <div class="sym-name">${s.name}</div>
+        <div class="sym-title">${s.prediction_title}</div>
+        <div class="sym-pred">${s.prediction}</div>
+        <span class="sym-energy">⚡ ${s.energy}</span>
+      </div>`;
+    });
+    h += `</div><div class="cta-box">💬 ${result.cta}</div>`;
+    return h;
+  }
+  if (agentId === 'image_prompts') {
+    const keys = ['image1_prompt','image2_prompt','image3_prompt','image4_prompt'];
+    const labels = ['🖼 Image 1 — Choix symbole','🌙 Image 2 — Symbole 1','☀️ Image 3 — Symbole 2','⭐ Image 4 — Symbole 3'];
+    let h = `<div style="background:#0d0d20;border:1px solid #2a2a4a;border-radius:8px;padding:10px;margin-bottom:12px;font-size:0.72rem;color:#fbbf24">
+      🎨 Style commun : <span style="color:#9090b0">${result.style_base||''}</span></div>`;
+    keys.forEach((k,i) => {
+      h += `<div style="background:#0d0d20;border:1px solid #2a2a4a;border-radius:8px;margin-bottom:8px;">
+        <div style="font-size:0.68rem;color:#a78bfa;padding:6px 10px 0">${labels[i]}</div>
+        <div style="font-size:0.7rem;color:#9090b0;padding:4px 10px 8px;font-family:monospace;line-height:1.5">${esc(result[k]||'')}</div>
+      </div>`;
+    });
+    return h;
+  }
+  if (agentId === 'images') {
+    const imgs = result.images || {};
+    const labels = {image1:'1 — Choix', image2:'2 — Sym.1', image3:'3 — Sym.2', image4:'4 — Sym.3'};
+    let h = `<div class="images-carousel">`;
+    Object.entries(imgs).forEach(([key, path]) => {
+      const url = path.replace('/home/claude-user/tiktok-voyance', API);
+      h += `<div class="img-box" onclick="openLightbox('${url}')">
+        <img src="${url}" alt="${key}">
+        <div class="img-label">${labels[key]||key}</div>
+      </div>`;
+    });
+    h += `</div>`;
+    h += `<div style="margin-top:16px;text-align:center">
+      <input id="tt-caption" type="text" placeholder="Légende TikTok (optionnel)" style="width:100%;max-width:400px;background:#1a1a2e;border:1px solid #2a2a4a;color:#e0e0ff;padding:8px 12px;border-radius:8px;font-size:0.85rem;margin-bottom:10px">
+      <br>
+      <button onclick="publishTikTok()" style="background:linear-gradient(135deg,#ff0050,#ff4080);color:#fff;border:none;padding:10px 28px;border-radius:10px;font-size:0.9rem;font-weight:600;cursor:pointer;letter-spacing:0.5px">
+        ▶ Publier sur TikTok
+      </button>
+      <div id="tt-status" style="margin-top:8px;font-size:0.8rem;color:#9090b0"></div>
+    </div>`;
+    return h;
+  }
+  return '';
+}
+
+async function publishTikTok() {
+  const job = await fetchJob(currentJobId);
+  if (!job) return;
+  const images = job.agents?.images?.result?.images;
+  if (!images) return;
+  const caption = document.getElementById('tt-caption')?.value || 'Oracle du jour ✨';
+  const status = document.getElementById('tt-status');
+  status.textContent = 'Publication en cours...';
+  status.style.color = '#fbbf24';
+  try {
+    const r = await fetch(`${API}/api/tiktok/publish`, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({images, caption})
+    });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.detail || JSON.stringify(data));
+    status.textContent = '✓ Publié ! ID : ' + (data.publish_id || 'ok');
+    status.style.color = '#4ade80';
+  } catch(e) {
+    status.textContent = '✗ Erreur : ' + e.message;
+    status.style.color = '#f87171';
+  }
+}
+
+function buildParams(agentId, job) {
+  const agents = job.agents;
+  if (agentId === 'content') {
+    return `<div style="color:#5a5a80;font-size:0.78rem">L'agent génère automatiquement le hook, les 3 symboles et les prédictions du jour.</div>`;
+  }
+  if (agentId === 'image_prompts') {
+    const content = agents['content']?.result;
+    if (!content) return `<div style="color:#5a5a80;font-size:0.78rem">Lance d'abord l'agent Contenu.</div>`;
+    return `
+      <div class="param-group"><div class="param-label">Style visuel commun</div>
+        <textarea class="param-textarea" id="param-style" rows="3">dark purple mystical background, golden glowing elements, candlelight, ultra detailed, cinematic, no text</textarea>
+      </div>
+      <div style="color:#5a5a80;font-size:0.72rem">Hook : <strong style="color:#fbbf24">${content.hook}</strong></div>`;
+  }
+  if (agentId === 'publish') {
+    const imgs = agents['images']?.result?.images;
+    if (!imgs) return `<div style="color:#5a5a80;font-size:0.78rem">Lance d'abord l'agent Images.</div>`;
+    return `<div style="color:#5a5a80;font-size:0.78rem">Claude va générer la description et les hashtags, puis envoyer les images dans ton inbox TikTok.<br><br>⚠️ Ouvre l'app TikTok après l'envoi pour publier.</div>`;
+  }
+  if (agentId === 'images') {
+    const ip = agents['image_prompts']?.result;
+    if (!ip) return `<div style="color:#5a5a80;font-size:0.78rem">Lance d'abord l'agent Prompts.</div>`;
+    const keys = ['image1_prompt','image2_prompt','image3_prompt','image4_prompt'];
+    const labels = ['Image 1 — Choix symbole','Image 2 — Symbole 1','Image 3 — Symbole 2','Image 4 — Symbole 3'];
+    let h = '';
+    keys.forEach((k,i) => {
+      h += `<div class="param-group"><div class="param-label">${labels[i]}</div>
+        <textarea class="param-textarea" id="param-${k}" rows="3">${esc(ip[k]||'')}</textarea>
+      </div>`;
+    });
+    return h;
+  }
+  return null;
+}
+
+async function runAgent(agentId) {
+  if (!currentJobId) return;
+  const body = collectParams(agentId);
+  const r = await fetch(`${BASE}/jobs/${currentJobId}/run/${agentId}`, {
+    method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)
+  });
+  if (!r.ok) { const e=await r.json(); alert('Erreur: '+(e.detail||r.status)); return; }
+  await refreshAndRender();
+  startPoll();
+}
+
+async function runAll() {
+  if (!currentJobId) return;
+  // Lance content, puis chain
+  await runAgent('content');
+}
+
+function collectParams(agentId) {
+  const body = {};
+  if (agentId === 'images') {
+    const keys = ['image1_prompt','image2_prompt','image3_prompt','image4_prompt'];
+    const prompts = {};
+    let hasEdit = false;
+    keys.forEach(k => {
+      const el = document.getElementById(`param-${k}`);
+      if (el) { prompts[k] = el.value; hasEdit = true; }
+    });
+    if (hasEdit) body.image_prompts = prompts;
+  }
+  return body;
+}
+
+function startPoll() {
+  if (pollTimer) clearInterval(pollTimer);
+  pollTimer = setInterval(async () => {
+    if (!currentJobId) return;
+    const job = await fetchJob(currentJobId);
+    if (!job) return;
+    renderPipeline(job);
+    if (currentAgent) renderDetail(currentAgent, job);
+    await loadJobs();
+    if (['done','error'].includes(job.status)) { clearInterval(pollTimer); pollTimer=null; }
+  }, 2000);
+}
+
+async function refreshAndRender() {
+  const job = await fetchJob(currentJobId);
+  if (!job) return;
+  renderPipeline(job);
+  if (currentAgent) renderDetail(currentAgent, job);
+  await loadJobs();
+}
+
+async function fetchJob(jobId) {
+  try { const r=await fetch(`${BASE}/jobs/${jobId}`); return r.ok?await r.json():null; } catch { return null; }
+}
+
+function openDrawer(agentId) {
+  fetchJob(currentJobId).then(job => {
+    const fields = buildParams(agentId, job);
+    document.getElementById('drawer-body').innerHTML = fields || '';
+    document.getElementById('drawer').classList.add('open');
+    document.getElementById('drawer-overlay').classList.add('open');
+  });
+}
+function closeDrawer() {
+  document.getElementById('drawer').classList.remove('open');
+  document.getElementById('drawer-overlay').classList.remove('open');
+}
+document.addEventListener('keydown', e => { if (e.key==='Escape') { closeLightbox(); closeDrawer(); } });
+
+function openLightbox(url) {
+  document.getElementById('lightbox-img').src=url;
+  document.getElementById('lightbox').classList.add('open');
+}
+function closeLightbox() { document.getElementById('lightbox').classList.remove('open'); }
+document.addEventListener('keydown', e=>{ if(e.key==='Escape') closeLightbox(); });
+function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+init();
+</script>
+</body>
+</html>

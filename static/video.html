@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vidéo Tarot</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Segoe UI', sans-serif; background: #0a0a18; color: #e0e0f0; height: 100vh; display: flex; flex-direction: column; }
+
+header { background: #12112a; border-bottom: 1px solid #2a1a4e; padding: 12px 20px; display: flex; align-items: center; gap: 16px; flex-shrink: 0; }
+header h1 { font-size: 1.1rem; background: linear-gradient(90deg,#f43f5e,#fb7185,#c084fc); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+.hdr-status { font-size: 0.72rem; color: #6b7280; }
+.hdr-status.ok { color: #10b981; }
+.btn-new { padding: 7px 14px; background: linear-gradient(135deg,#f43f5e,#e11d48); color: #fff; border: none; border-radius: 7px; font-size: 0.82rem; font-weight: 600; cursor: pointer; }
+.btn-new:hover { filter: brightness(1.15); }
+.job-item { padding:10px 14px; cursor:pointer; border-bottom:1px solid #1e1e3a; font-size:0.78rem; }
+.job-item:hover { background:#1a1a35; }
+.job-item.active { background:#1e1040; color:#fb7185; }
+
+.layout { display: flex; flex: 1; overflow: hidden; }
+
+/* Pipeline strip */
+.pipeline-strip { display: flex; align-items: stretch; padding: 14px 20px; gap: 0; border-bottom: 1px solid #1e1e3a; background: #0f0f22; flex-shrink: 0; overflow-x: auto; }
+.node { width: 180px; background: #16162e; border: 2px solid #2a2a4a; border-radius: 10px; flex-shrink: 0; cursor: pointer; transition: all 0.2s; overflow: hidden; }
+.node:hover { border-color: #8a3a5a; }
+.node.active { border-color: #f43f5e; box-shadow: 0 0 0 3px rgba(244,63,94,0.15); }
+.node.s-running { border-color: #f59e0b; box-shadow: 0 0 16px rgba(245,158,11,0.2); }
+.node.s-done { border-color: #10b981; }
+.node.s-error { border-color: #ef4444; }
+.node-head { padding: 9px 11px 7px; background: #1a1a38; display: flex; align-items: center; gap: 8px; }
+.node-icon { font-size: 1.2rem; }
+.node-title { font-size: 0.78rem; font-weight: 600; }
+.node-sub { font-size: 0.62rem; color: #7070a0; margin-top: 1px; }
+.node-body { padding: 8px 11px; }
+.badge { display: inline-flex; align-items: center; gap: 5px; font-size: 0.68rem; padding: 2px 7px; border-radius: 20px; font-weight: 500; }
+.b-pending { background:#1e1e38; color:#6b7280; }
+.b-running { background:#2d1f00; color:#f59e0b; }
+.b-done { background:#063020; color:#10b981; }
+.b-error { background:#2d0a0a; color:#ef4444; }
+.arrow { width: 28px; display: flex; align-items: center; justify-content: center; color: #2a2a5a; font-size: 1.1rem; flex-shrink: 0; }
+.arrow.lit { color: #f43f5e; }
+
+/* Main layout */
+.main-wrap { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+.detail { flex: 1; overflow: hidden; }
+.detail-left { width: 100%; height: 100%; overflow-y: auto; padding: 20px; }
+.detail-right { width: 320px; background: #0d0d20; border-left: 1px solid #1e1e3a; overflow-y: auto; }
+
+/* Settings panel */
+.settings-panel { padding: 16px; }
+.settings-title { font-size: 0.72rem; color: #a78bfa; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px; }
+.setting-section { margin-bottom: 18px; }
+.setting-label { font-size: 0.72rem; color: #7070a0; margin-bottom: 6px; }
+
+.upload-zone { border: 2px dashed #2a2a4a; border-radius: 8px; padding: 10px; text-align: center; cursor: pointer; transition: all 0.2s; position: relative; min-height: 80px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.upload-zone:hover { border-color: #f43f5e; }
+.upload-zone.has-image { border-style: solid; border-color: #10b981; padding: 0; overflow: hidden; }
+.upload-zone img { width: 100%; height: 80px; object-fit: cover; border-radius: 6px; display: block; }
+.upload-overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; opacity: 0; transition: opacity 0.2s; border-radius: 6px; font-size: 0.72rem; color: #fff; }
+.upload-zone.has-image:hover .upload-overlay { opacity: 1; }
+input[type=file] { display: none; }
+
+.cards-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.card-slot { background: #12112a; border: 1px solid #2a2a4a; border-radius: 6px; padding: 6px; cursor: pointer; transition: border-color 0.2s; }
+.card-slot:hover { border-color: #f43f5e; }
+.card-slot.has-image { border-color: #10b981; }
+.card-slot-name { font-size: 0.62rem; color: #7070a0; margin-bottom: 4px; text-align: center; }
+.card-slot-outcome { font-size: 0.58rem; text-align: center; margin-bottom: 4px; }
+.outcome-positive { color: #10b981; }
+.outcome-neutral { color: #f59e0b; }
+.outcome-negative { color: #ef4444; }
+.card-slot img { width: 100%; height: 60px; object-fit: cover; border-radius: 4px; display: block; }
+.card-slot .upload-hint { font-size: 0.6rem; color: #4a4a70; height: 40px; display: flex; align-items: center; justify-content: center; }
+
+/* Detail panel */
+.agent-header { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+.agent-title { font-size: 1.1rem; font-weight: 700; }
+.agent-desc { font-size: 0.78rem; color: #7070a0; margin-top: 2px; }
+.actions { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+.btn { padding: 8px 16px; border: none; border-radius: 8px; font-size: 0.82rem; font-weight: 600; cursor: pointer; }
+.btn-primary { background: linear-gradient(135deg,#f43f5e,#e11d48); color: #fff; }
+.btn-secondary { background: #1e1e38; color: #c0c0e0; border: 1px solid #2a2a4a; }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.error-box { background: #1a0000; border: 1px solid #ef4444; border-radius: 8px; padding: 12px; font-size: 0.78rem; color: #ef4444; white-space: pre-wrap; max-height: 200px; overflow-y: auto; }
+
+.spin { display: inline-block; animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Subject picker */
+.subject-grid { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
+.subject-btn { padding: 10px 14px; background: #16162e; border: 1px solid #2a2a4a; border-radius: 8px; color: #c0c0e0; font-size: 0.8rem; cursor: pointer; text-align: left; transition: all 0.15s; }
+.subject-btn:hover { border-color: #f43f5e; background: #1e0a15; }
+.subject-btn.selected { border-color: #f43f5e; background: #2d0a1a; color: #fb7185; }
+
+/* Result boxes */
+.result-card { background: #0d0d20; border: 1px solid #2a2a4a; border-radius: 10px; padding: 14px; margin-bottom: 12px; }
+.result-label { font-size: 0.65rem; color: #a78bfa; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
+.outcome-box { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 0.78rem; font-weight: 600; margin-bottom: 8px; }
+.outcome-positive { background: #063020; color: #10b981; }
+.outcome-neutral { background: #2d1f00; color: #f59e0b; }
+.outcome-negative { background: #2d0a0a; color: #ef4444; }
+
+.video-result { text-align: center; }
+.video-result video { width: 100%; max-width: 280px; border-radius: 10px; border: 2px solid #10b981; }
+.btn-dl { display: inline-block; margin-top: 10px; padding: 8px 20px; background: #10b981; color: #fff; border-radius: 8px; font-size: 0.82rem; font-weight: 600; text-decoration: none; }
+
+.img-preview { width: 100%; border-radius: 8px; margin-top: 8px; border: 1px solid #2a2a4a; }
+</style>
+</head>
+<body>
+
+<header>
+  <a href="/" style="font-size:0.75rem;color:#5a5a80;text-decoration:none;border:1px solid #2a2a4a;padding:4px 10px;border-radius:6px">← Workflows</a>
+  <h1>🎬 Vidéo Tarot</h1>
+  <button class="btn-new" onclick="newJob()" style="margin-left:auto">＋ Nouvelle session</button>
+  <div id="sessions-btn" style="position:relative;margin-left:8px">
+    <button onclick="toggleSessionsList()" style="background:#1e1e38;border:1px solid #2a2a4a;color:#c0c0e0;padding:7px 14px;border-radius:7px;font-size:0.82rem;cursor:pointer">Sessions ▾</button>
+    <div id="sessions-dropdown" style="display:none;position:absolute;top:110%;right:0;background:#12112a;border:1px solid #2a2a4a;border-radius:8px;min-width:220px;z-index:100;max-height:300px;overflow-y:auto"><div id="jobs-list"></div></div>
+  </div>
+  <div id="settings-btn" style="position:relative;margin-left:8px">
+    <button onclick="toggleSettings()" style="background:#1e1e38;border:1px solid #2a2a4a;color:#c0c0e0;padding:7px 14px;border-radius:7px;font-size:0.82rem;cursor:pointer">⚙ Réglages ▾</button>
+    <div id="settings-dropdown" style="display:none;position:absolute;top:110%;right:0;background:#12112a;border:1px solid #2a2a4a;border-radius:8px;width:320px;z-index:200;max-height:80vh;overflow-y:auto;padding:16px">
+      <div style="font-size:0.72rem;color:#a78bfa;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:12px">Réglages globaux</div>
+      <div style="font-size:0.72rem;color:#7070a0;margin-bottom:6px">Premier frame (toujours le même)</div>
+      <div class="upload-zone" id="zone-first" onclick="triggerUpload('first-global')">
+        <div style="font-size:1.5rem">📤</div>
+        <div style="font-size:0.68rem;color:#5050a0;margin-top:4px">Cliquer pour uploader</div>
+      </div>
+      <input type="file" id="file-first-global" accept="image/*" onchange="uploadGlobalFrame('first', this)">
+      <div style="font-size:0.72rem;color:#7070a0;margin:12px 0 6px">Cartes (derniers frames)</div>
+      <div class="cards-grid" id="cards-grid"></div>
+    </div>
+  </div>
+  <span id="hdr-status" class="hdr-status" style="margin-left:8px">API...</span>
+</header>
+
+<div class="layout">
+  <div class="main-wrap">
+
+    <!-- Pipeline strip -->
+    <div class="pipeline-strip" id="pipeline-strip">
+      <div style="color:#4a4a70;font-size:0.82rem;display:flex;align-items:center">Crée ou sélectionne une session</div>
+    </div>
+
+    <div class="detail">
+      <div class="detail-left" id="detail-left">
+        <div style="color:#4a4a70;font-size:0.85rem;margin-top:40px;text-align:center">Sélectionne un agent dans le pipeline</div>
+      </div>
+
+    </div>
+
+  </div>
+</div>
+
+<script>
+const API = location.hostname.includes('factorytiktok') ? '' : 'http://localhost:8401';
+
+const AGENTS = [
+  { id:'question',  icon:'🔮', title:'Question',  sub:'Sujet + tirage carte',        desc:'Choisit le sujet du jour, pose la question et tire la carte selon l\'énergie.' },
+  { id:'video_gen', icon:'🎬', title:'Vidéo',      sub:'Kling O3 first→last frame',  desc:'Génère la vidéo de révélation avec Kling O3 entre les deux frames.' },
+  { id:'overlay',   icon:'✍️', title:'Texte',      sub:'Overlay Pillow',              desc:'Superpose la question et la lecture sur les frames avec Pillow.' },
+  { id:'montage',   icon:'🎞️', title:'Montage',   sub:'Assemblage FFmpeg',           desc:'Assemble intro + vidéo + révélation en un seul MP4 final.' },
+  { id:'publish',   icon:'📤', title:'Publication', sub:'TikTok inbox',              desc:'Génère le titre, la description et envoie la vidéo dans l\'inbox TikTok.' },
+];
+
+const CARDS_DEF = [
+  { id:'soleil',    name:'Le Soleil',       outcome:'positive' },
+  { id:'etoile',    name:"L'Étoile",        outcome:'positive' },
+  { id:'monde',     name:'Le Monde',        outcome:'positive' },
+  { id:'roue',      name:'Roue Fortune',    outcome:'positive' },
+  { id:'imperatrice', name:"L'Impératrice", outcome:'positive' },
+  { id:'jugement',  name:'Le Jugement',     outcome:'neutral'  },
+  { id:'lune',      name:'La Lune',         outcome:'neutral'  },
+  { id:'pendu',     name:'Le Pendu',        outcome:'neutral'  },
+  { id:'tour',      name:'La Tour',         outcome:'negative' },
+  { id:'diable',    name:'Le Diable',       outcome:'negative' },
+];
+
+const SUBJECTS = [
+  { id:'amours',    label:'💕 Tes amours aujourd\'hui' },
+  { id:'journee',   label:'☀️ Ta journée en général' },
+  { id:'carriere',  label:'💼 Ta carrière cette semaine' },
+  { id:'energie',   label:'⚡ Ton énergie du moment' },
+  { id:'decision',  label:'🎯 Une décision importante' },
+  { id:'relations', label:'🤝 Tes relations avec les autres' },
+  { id:'sante',     label:'🌿 Ta santé et bien-être' },
+  { id:'projet',    label:'🚀 Ton projet en cours' },
+  { id:'finances',  label:'💰 Tes finances' },
+  { id:'univers',   label:'✨ Ce que l\'univers te réserve' },
+];
+
+let currentJobId = null;
+let currentAgent = null;
+let pollTimer = null;
+let settings = { first_frame_url: null, last_frames: {} };
+
+function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function toggleSessionsList() {
+  const d = document.getElementById('sessions-dropdown');
+  d.style.display = d.style.display === 'none' ? 'block' : 'none';
+}
+function toggleSettings() {
+  const d = document.getElementById('settings-dropdown');
+  d.style.display = d.style.display === 'none' ? 'block' : 'none';
+}
+document.addEventListener('click', e => {
+  const sessBtn = document.getElementById('sessions-btn');
+  if (sessBtn && !sessBtn.contains(e.target)) {
+    const d = document.getElementById('sessions-dropdown');
+    if (d) d.style.display = 'none';
+  }
+  const setBtn = document.getElementById('settings-btn');
+  if (setBtn && !setBtn.contains(e.target)) {
+    const d = document.getElementById('settings-dropdown');
+    if (d) d.style.display = 'none';
+  }
+});
+
+async function loadSettings() {
+  const r = await fetch(`${API}/api/video/settings`);
+  settings = await r.json();
+  renderSettingsPanel();
+}
+
+function renderSettingsPanel() {
+  // First frame
+  const zoneFirst = document.getElementById('zone-first');
+  if (settings.first_frame_url) {
+    zoneFirst.className = 'upload-zone has-image';
+    zoneFirst.innerHTML = `<img src="${settings.first_frame_url}"><div class="upload-overlay">🔄 Changer</div>`;
+  }
+
+  // Cards grid
+  const grid = document.getElementById('cards-grid');
+  grid.innerHTML = CARDS_DEF.map(c => {
+    const url = settings.last_frames?.[c.id];
+    const outcomeClass = `outcome-${c.outcome}`;
+    const outcomeLabel = {positive:'✅',neutral:'🟡',negative:'❌'}[c.outcome];
+    return `<div class="card-slot ${url?'has-image':''}" onclick="triggerCardUpload('${c.id}')" id="slot-${c.id}">
+      <div class="card-slot-name">${c.name}</div>
+      <div class="card-slot-outcome ${outcomeClass}">${outcomeLabel}</div>
+      ${url
+        ? `<img src="${url}">`
+        : `<div class="upload-hint">📤</div>`
+      }
+      <input type="file" id="file-card-${c.id}" accept="image/*" onchange="uploadCardFrame('${c.id}', this)" style="display:none">
+    </div>`;
+  }).join('');
+}
+
+function triggerUpload(id) { document.getElementById(`file-${id}`).click(); }
+function triggerCardUpload(cardId) { document.getElementById(`file-card-${cardId}`).click(); }
+
+async function uploadGlobalFrame(frame, input) {
+  if (!input.files[0]) return;
+  const zone = document.getElementById('zone-first');
+  zone.innerHTML = `<div style="color:#f59e0b;font-size:0.72rem">⏳ Upload...</div>`;
+  const fd = new FormData();
+  fd.append('file', input.files[0]);
+  const r = await fetch(`${API}/api/video/upload?frame=first&job_id=global`, {method:'POST', body: fd});
+  const data = await r.json();
+  await fetch(`${API}/api/video/settings`, {
+    method:'PATCH', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({first_frame_url: data.url})
+  });
+  settings.first_frame_url = data.url;
+  zone.className = 'upload-zone has-image';
+  zone.innerHTML = `<img src="${data.url}?t=${Date.now()}"><div class="upload-overlay">🔄 Changer</div>`;
+  zone.onclick = () => triggerUpload('first-global');
+}
+
+async function uploadCardFrame(cardId, input) {
+  if (!input.files[0]) return;
+  const slot = document.getElementById(`slot-${cardId}`);
+  slot.innerHTML = `<div style="font-size:0.65rem;color:#f59e0b;text-align:center;padding:8px">⏳</div>`;
+  const fd = new FormData();
+  fd.append('file', input.files[0]);
+  const r = await fetch(`${API}/api/video/upload?frame=${cardId}&job_id=card`, {method:'POST', body: fd});
+  const data = await r.json();
+  await fetch(`${API}/api/video/settings`, {
+    method:'PATCH', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({last_frames: {[cardId]: data.url}})
+  });
+  settings.last_frames = settings.last_frames || {};
+  settings.last_frames[cardId] = data.url;
+  renderSettingsPanel();
+}
+
+async function loadJobs() {
+  const r = await fetch(`${API}/api/video/jobs`);
+  const data = await r.json();
+  const list = document.getElementById('jobs-list');
+  if (!data.jobs?.length) {
+    list.innerHTML = '<div style="padding:16px;text-align:center;color:#3a3a60;font-size:0.75rem">Aucune session</div>';
+    return;
+  }
+  list.innerHTML = data.jobs.map(j => {
+    const st = j.status;
+    const dot = {idle:'⬜',running:'🟡',done:'🟢',error:'🔴'}[st]||'⬜';
+    const d = new Date(j.created_at);
+    const label = d.toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit'}) + ' ' + d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
+    return `<div class="job-item ${j.id===currentJobId?'active':''}" onclick="selectJob('${j.id}')">
+      <div>${dot} ${j.id.replace('vid_','')}</div>
+      <div style="font-size:0.65rem;color:#4a4a70;margin-top:2px">${label}</div>
+    </div>`;
+  }).join('');
+}
+
+async function newJob() {
+  const r = await fetch(`${API}/api/video/jobs`, {method:'POST'});
+  const data = await r.json();
+  document.getElementById('sessions-dropdown').style.display = 'none';
+  await loadJobs();
+  await selectJob(data.job_id);
+}
+
+async function selectJob(jobId) {
+  currentJobId = jobId;
+  currentAgent = 'question';
+  if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+  document.getElementById('sessions-dropdown').style.display = 'none';
+  await loadJobs();
+  const r = await fetch(`${API}/api/video/jobs/${jobId}`);
+  const job = await r.json();
+  renderPipeline(job);
+  renderDetail('question', job);
+}
+
+function renderPipeline(job) {
+  const strip = document.getElementById('pipeline-strip');
+  strip.innerHTML = AGENTS.map((ag, i) => {
+    const st = job.agents?.[ag.id]?.status || 'pending';
+    const isActive = ag.id === currentAgent;
+    const prev = i > 0 ? (job.agents?.[AGENTS[i-1].id]?.status || 'pending') : 'done';
+    return `
+      ${i > 0 ? `<div class="arrow ${prev==='done'?'lit':''}">›</div>` : ''}
+      <div class="node ${isActive?'active':''} s-${st}" onclick="selectAgent('${ag.id}')">
+        <div class="node-head">
+          <span class="node-icon">${ag.icon}</span>
+          <div><div class="node-title">${ag.title}</div><div class="node-sub">${ag.sub}</div></div>
+        </div>
+        <div class="node-body">
+          <span class="badge b-${st}">${badgeLabel(st)}</span>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function badgeLabel(st) {
+  return {pending:'⏳ En attente', running:'⚡ En cours', done:'✓ Fait', error:'✗ Erreur'}[st] || st;
+}
+
+function selectAgent(agentId) {
+  currentAgent = agentId;
+  if (!currentJobId) return;
+  fetch(`${API}/api/video/jobs/${currentJobId}`).then(r=>r.json()).then(job => {
+    renderPipeline(job);
+    renderDetail(agentId, job);
+  });
+}
+
+function renderDetail(agentId, job) {
+  const ag = AGENTS.find(a => a.id === agentId);
+  const state = job.agents?.[agentId] || {};
+  const st = state.status || 'pending';
+  const isRunning = st === 'running';
+  const left = document.getElementById('detail-left');
+
+  let actionsHtml = `<div class="actions">
+    <button class="btn btn-primary" onclick="runAgent('${agentId}')" ${isRunning?'disabled':''}>
+      ${isRunning?'<span class="spin"></span>':'▶'} Lancer
+    </button>`;
+  if (agentId === 'question') {
+    actionsHtml += `<button class="btn btn-secondary" onclick="runAll()" ${isRunning?'disabled':''}>▶▶ Tout lancer</button>`;
+  }
+  if (st === 'done' || st === 'error') {
+    actionsHtml += `<button class="btn btn-secondary" onclick="runAgent('${agentId}')">↻ Relancer</button>`;
+  }
+  actionsHtml += `</div>`;
+
+  let paramsHtml = buildParams(agentId, job);
+  let outputHtml = '';
+  if (st === 'error' && state.error) {
+    outputHtml = `<div class="error-box">${esc(state.error)}</div>`;
+  } else if (st === 'done' && state.result) {
+    outputHtml = renderOutput(agentId, state.result);
+  }
+
+  left.innerHTML = `
+    <div class="agent-header">
+      <span style="font-size:2rem">${ag.icon}</span>
+      <div><div class="agent-title">${ag.title}</div><div class="agent-desc">${ag.desc}</div></div>
+      <span class="badge b-${st}" style="margin-left:auto">${badgeLabel(st)}</span>
+    </div>
+    ${actionsHtml}
+    ${paramsHtml || ''}
+    ${outputHtml || `<div style="color:#4a4a70;font-size:0.85rem">${st==='pending'?'Lance cet agent pour voir les résultats.':''}</div>`}
+  `;
+
+  if (st === 'running' && !pollTimer) {
+    pollTimer = setInterval(async () => {
+      const r = await fetch(`${API}/api/video/jobs/${currentJobId}`);
+      const j = await r.json();
+      renderPipeline(j);
+      if (currentAgent) renderDetail(currentAgent, j);
+      await loadJobs();
+      if (!['running'].includes(j.status)) { clearInterval(pollTimer); pollTimer = null; }
+    }, 3000);
+  }
+}
+
+function buildParams(agentId, job) {
+  if (agentId === 'question') {
+    const selectedId = job.subject_id;
+    return `<div style="margin-bottom:12px">
+      <div style="font-size:0.72rem;color:#7070a0;margin-bottom:8px">Sujet (optionnel — auto si non sélectionné)</div>
+      <div class="subject-grid">
+        ${SUBJECTS.map(s => `
+          <div class="subject-btn ${s.id===selectedId?'selected':''}" onclick="selectSubject('${s.id}')">${s.label}</div>
+        `).join('')}
+      </div>
+    </div>`;
+  }
+  return '';
+}
+
+async function selectSubject(subjectId) {
+  if (!currentJobId) return;
+  await fetch(`${API}/api/video/jobs/${currentJobId}`, {
+    method:'PATCH', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({subject_id: subjectId})
+  });
+  const job = await (await fetch(`${API}/api/video/jobs/${currentJobId}`)).json();
+  renderDetail('question', job);
+}
+
+function renderOutput(agentId, result) {
+  if (agentId === 'question') {
+    const card = result.card || {};
+    const outcome = result.outcome || 'neutral';
+    const outcomeLabel = {positive:'✅ Favorable', neutral:'🟡 Mixed Energy', negative:'❌ Challenging'}[outcome];
+    return `
+      <div class="result-card">
+        <div class="result-label">Question</div>
+        <div style="font-size:0.9rem;color:#fbbf24;font-weight:600">${esc(result.question||'')}</div>
+      </div>
+      <div class="result-card">
+        <div class="result-label">Résultat</div>
+        <span class="outcome-box outcome-${outcome}">${outcomeLabel}</span>
+        <div style="font-size:0.85rem;font-weight:600;color:#e0e0f0;margin-bottom:6px">${esc(card.name||'')} — ${esc(card.name_fr||'')}</div>
+        <div style="font-size:0.8rem;color:#9090b0">${esc(result.reading||'')}</div>
+      </div>
+      <div class="result-card">
+        <div class="result-label">Hook TikTok</div>
+        <div style="font-size:0.85rem;color:#a78bfa">${esc(result.hook||'')}</div>
+      </div>`;
+  }
+  if (agentId === 'video_gen') {
+    const videoUrl = (result.video_path||'').replace('/home/claude-user/tiktok-voyance', API||'');
+    return `<div class="result-card">
+      <div class="result-label">Clip généré</div>
+      <div class="video-result"><video controls loop src="${videoUrl}" style="max-width:240px"></video></div>
+    </div>`;
+  }
+  if (agentId === 'overlay') {
+    return `<div class="result-card">
+      <div class="result-label">Frame intro</div>
+      <img class="img-preview" src="${result.intro_url||''}">
+    </div>
+    <div class="result-card">
+      <div class="result-label">Frame révélation</div>
+      <img class="img-preview" src="${result.reveal_url||''}">
+    </div>`;
+  }
+  if (agentId === 'montage') {
+    const finalUrl = (result.final_path||'').replace('/home/claude-user/tiktok-voyance', API||'');
+    return `<div class="result-card">
+      <div class="result-label">✓ Vidéo finale</div>
+      <div class="video-result">
+        <video controls autoplay loop src="${finalUrl}"></video>
+        <br>
+        <a class="btn-dl" href="${finalUrl}" download="video_tarot_final.mp4">⬇ Télécharger</a>
+      </div>
+    </div>`;
+  }
+  if (agentId === 'publish') {
+    const pub = result.publish || {};
+    const ok = ['sent_to_inbox','posted_private'].includes(pub.status);
+    const warn = ['no_token','sandbox_restriction'].includes(pub.status);
+    const statusColor = ok ? '#10b981' : warn ? '#f59e0b' : '#ef4444';
+    const statusIcon = ok ? '✓' : warn ? '⚠' : '✗';
+    return `
+      <div class="result-card" style="text-align:center">
+        <div style="font-size:2rem;margin-bottom:8px">📤</div>
+        <div style="font-size:1rem;font-weight:700;color:${statusColor};margin-bottom:6px">${statusIcon} ${esc(pub.message||pub.status||'')}</div>
+        ${pub.publish_id ? `<div style="font-size:0.72rem;color:#5a5a80;margin-bottom:16px">Publish ID: ${esc(pub.publish_id)}</div>` : ''}
+      </div>
+      <div class="result-card">
+        <div class="result-label">Titre</div>
+        <div style="font-size:0.9rem;font-weight:600;color:#fbbf24">${esc(result.title||'')}</div>
+      </div>
+      <div class="result-card">
+        <div class="result-label">Description</div>
+        <div style="font-size:0.82rem;color:#c0c0e0;line-height:1.5">${esc(result.description||'')}</div>
+      </div>
+      <div class="result-card">
+        <div class="result-label">Hashtags</div>
+        <div style="font-size:0.82rem;color:#a78bfa">${esc(result.hashtags||'')}</div>
+      </div>
+      ${result.audio_suggestion ? `<div class="result-card" style="background:#1a0a2e;border-color:#7c3aed">
+        <div class="result-label" style="color:#c084fc">🎵 Audio suggéré</div>
+        <div style="font-size:0.88rem;font-weight:600;color:#e9d5ff">${esc(result.audio_suggestion)}</div>
+        <div style="font-size:0.68rem;color:#7c3aed;margin-top:4px">Recherche ce son dans TikTok avant de publier</div>
+      </div>` : ''}`;
+  }
+  return '';
+}
+
+async function runAgent(agentId) {
+  if (!currentJobId) return;
+  const body = {};
+  if (agentId === 'question') {
+    const job = await (await fetch(`${API}/api/video/jobs/${currentJobId}`)).json();
+    if (job.subject_id) body.subject_id = job.subject_id;
+  }
+  const r = await fetch(`${API}/api/video/jobs/${currentJobId}/run/${agentId}`, {
+    method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)
+  });
+  if (!r.ok) { const e = await r.json(); alert('Erreur: '+(e.detail||r.status)); return; }
+  const job = await (await fetch(`${API}/api/video/jobs/${currentJobId}`)).json();
+  renderPipeline(job);
+  renderDetail(agentId, job);
+  await loadJobs();
+}
+
+async function runAll() {
+  await runAgent('question');
+  // Chain will be handled by polling + manual progression
+}
+
+// Init
+fetch(`${API}/api/ping`).then(r=>r.json()).then(d => {
+  const el = document.getElementById('hdr-status');
+  el.textContent = `API OK • Fal.ai ${d.fal_configured?'✓':'✗'}`;
+  el.className = 'hdr-status ok';
+}).catch(() => { document.getElementById('hdr-status').textContent = 'API hors ligne'; });
+
+loadSettings();
+loadJobs();
+</script>
+</body>
+</html>

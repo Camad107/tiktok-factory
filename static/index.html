@@ -1,0 +1,678 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TikTok Voyance</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Segoe UI', sans-serif; background: #0d0d1a; color: #e0e0f0; height: 100vh; display: flex; flex-direction: column; }
+
+/* Header */
+header {
+  background: #12112a;
+  border-bottom: 1px solid #2a1a4e;
+  padding: 12px 20px;
+  display: flex; align-items: center; gap: 16px;
+}
+header h1 { font-size: 1.1rem; background: linear-gradient(90deg,#c084fc,#7c3aed); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+.hdr-status { font-size: 0.72rem; color: #6b7280; margin-left: auto; }
+.hdr-status.ok { color: #10b981; }
+
+/* Layout */
+.layout { display: flex; flex: 1; overflow: hidden; }
+
+/* Sidebar — jobs */
+.sidebar {
+  width: 220px; background: #0f0f22; border-right: 1px solid #1e1e3a;
+  display: flex; flex-direction: column;
+}
+.sidebar h2 { font-size: 0.7rem; color: #5a5a80; text-transform: uppercase; letter-spacing: 1px; padding: 12px 14px 8px; border-bottom: 1px solid #1e1e3a; }
+.btn-new {
+  margin: 10px; padding: 9px; background: linear-gradient(135deg,#7c3aed,#5b21b6);
+  color: #fff; border: none; border-radius: 7px; font-size: 0.85rem; font-weight: 600;
+  cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;
+}
+.btn-new:hover { filter: brightness(1.15); }
+.jobs-list { flex: 1; overflow-y: auto; padding: 6px; }
+.job-item {
+  padding: 8px 10px; border-radius: 6px; cursor: pointer; margin-bottom: 4px;
+  border: 1px solid transparent; transition: all 0.15s;
+}
+.job-item:hover { background: #1a1a35; }
+.job-item.active { background: #1e1040; border-color: #7c3aed; }
+.job-id { font-size: 0.68rem; color: #8080a0; font-family: monospace; }
+.job-status { font-size: 0.68rem; margin-top: 3px; }
+.s-idle { color: #6b7280; } .s-running { color: #f59e0b; } .s-done { color: #10b981; } .s-error { color: #ef4444; }
+
+/* Main — pipeline */
+.main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+/* Pipeline strip */
+.pipeline-strip {
+  display: flex; align-items: stretch; padding: 16px 20px; gap: 0;
+  border-bottom: 1px solid #1e1e3a; background: #0f0f22; overflow-x: auto;
+  flex-shrink: 0;
+}
+.node {
+  width: 175px; background: #16162e; border: 2px solid #2a2a4a; border-radius: 10px;
+  flex-shrink: 0; cursor: pointer; transition: all 0.2s; overflow: hidden;
+}
+.node:hover { border-color: #5a3a9a; }
+.node.active { border-color: #a78bfa; box-shadow: 0 0 0 3px rgba(167,139,250,0.15); }
+.node.s-running { border-color: #f59e0b; box-shadow: 0 0 16px rgba(245,158,11,0.2); }
+.node.s-done { border-color: #10b981; }
+.node.s-error { border-color: #ef4444; }
+.node-head { padding: 9px 11px 7px; background: #1a1a38; display: flex; align-items: center; gap: 8px; }
+.node-icon { font-size: 1.2rem; }
+.node-title { font-size: 0.78rem; font-weight: 600; }
+.node-sub { font-size: 0.62rem; color: #7070a0; margin-top: 1px; }
+.node-body { padding: 8px 11px; }
+.badge {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 0.68rem; padding: 2px 7px; border-radius: 20px; font-weight: 500;
+}
+.b-pending { background:#1e1e38; color:#6b7280; }
+.b-running { background:#2d1f00; color:#f59e0b; }
+.b-done { background:#063020; color:#10b981; }
+.b-error { background:#2d0a0a; color:#ef4444; }
+.node-preview { font-size: 0.65rem; color: #7070a0; margin-top: 6px; line-height: 1.4; max-height: 40px; overflow: hidden; }
+
+.arrow { width: 30px; display: flex; align-items: center; justify-content: center; color: #2a2a5a; font-size: 1.1rem; flex-shrink: 0; }
+.arrow.lit { color: #7c3aed; }
+
+/* Detail panel */
+.detail { flex: 1; overflow: hidden; display: flex; }
+.detail-left { flex: 1; overflow-y: auto; padding: 20px; }
+
+/* Drawer */
+.drawer-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:200; }
+.drawer-overlay.open { display:block; }
+.drawer { position:fixed; bottom:0; left:0; right:0; background:#12112a; border-top:2px solid #7c3aed; border-radius:16px 16px 0 0; z-index:201; transform:translateY(100%); transition:transform 0.3s ease; max-height:70vh; display:flex; flex-direction:column; }
+.drawer.open { transform:translateY(0); }
+.drawer-header { padding:14px 20px; display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid #1e1e3a; flex-shrink:0; }
+.drawer-title { font-size:0.85rem; font-weight:600; color:#a78bfa; }
+.drawer-close { background:none; border:none; color:#6b7280; font-size:1.4rem; cursor:pointer; }
+.drawer-close:hover { color:#e0e0f0; }
+.drawer-body { overflow-y:auto; padding:16px 20px 24px; }
+
+/* Detail left */
+.agent-header {
+  display: flex; align-items: center; gap: 12px; margin-bottom: 16px;
+}
+.agent-title { font-size: 1.1rem; font-weight: 700; }
+.agent-desc { font-size: 0.8rem; color: #7070a0; margin-top: 2px; }
+.actions { display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; }
+.btn {
+  padding: 8px 16px; border-radius: 7px; border: none; font-size: 0.82rem;
+  font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: all 0.15s;
+}
+.btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.btn-primary { background: #7c3aed; color: #fff; }
+.btn-primary:hover:not(:disabled) { background: #6d28d9; }
+.btn-secondary { background: #1e1e38; color: #c0c0e0; border: 1px solid #2a2a4a; }
+.btn-secondary:hover:not(:disabled) { background: #2a2a4a; }
+.btn-danger { background: #7f1d1d; color: #fca5a5; border: 1px solid #991b1b; }
+.btn-danger:hover:not(:disabled) { background: #991b1b; }
+
+/* Output display */
+.output-section { margin-bottom: 20px; }
+.output-section h3 { font-size: 0.75rem; color: #7070a0; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px; }
+
+.content-cards { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+.card-box {
+  background: #0d0d20; border: 1px solid #2a2a4a; border-radius: 8px; padding: 12px;
+}
+.card-box .cn { font-size: 0.72rem; color: #a78bfa; margin-bottom: 4px; }
+.card-box .ct { font-size: 0.9rem; font-weight: 700; color: #fbbf24; margin-bottom: 4px; }
+.card-box .ce { display: inline-block; padding: 1px 8px; background: #1e103a; color: #c084fc; border-radius: 20px; font-size: 0.65rem; margin-bottom: 8px; }
+.card-box .cp { font-size: 0.72rem; color: #9090b0; line-height: 1.5; }
+
+.text-box {
+  background: #0d0d20; border: 1px solid #2a2a4a; border-radius: 8px; padding: 12px;
+  font-size: 0.82rem; color: #c0c0e0; line-height: 1.7; font-style: italic; margin-bottom: 10px;
+}
+.theme-tag {
+  display: inline-block; padding: 4px 14px; background: linear-gradient(135deg,#4c1d95,#2e1065);
+  color: #c084fc; border-radius: 20px; font-size: 0.8rem; font-weight: 600; margin-bottom: 14px;
+}
+
+.prompts-list { display: flex; flex-direction: column; gap: 8px; }
+.prompt-item { background: #0d0d20; border: 1px solid #2a2a4a; border-radius: 8px; }
+.prompt-label { font-size: 0.68rem; color: #a78bfa; padding: 6px 10px 0; }
+.prompt-text { font-size: 0.72rem; color: #9090b0; padding: 4px 10px 8px; line-height: 1.5; font-family: monospace; }
+
+.images-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+.img-box { border-radius: 8px; overflow: hidden; background: #0d0d20; border: 1px solid #2a2a4a; cursor: zoom-in; }
+.img-box img { width: 100%; aspect-ratio: 3/4; object-fit: cover; display: block; transition: transform 0.2s; }
+.img-box:hover img { transform: scale(1.03); }
+.img-label { font-size: 0.65rem; color: #6b7280; padding: 4px 8px; }
+
+/* Lightbox */
+.lightbox { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.92); z-index:1000; align-items:center; justify-content:center; cursor:zoom-out; }
+.lightbox.open { display:flex; }
+.lightbox img { max-height:90vh; max-width:90vw; border-radius:10px; box-shadow:0 0 60px rgba(0,0,0,0.8); }
+.lightbox-close { position:absolute; top:16px; right:20px; font-size:1.8rem; color:#fff; cursor:pointer; opacity:0.7; }
+.lightbox-close:hover { opacity:1; }
+
+.audio-list { display: flex; flex-direction: column; gap: 8px; }
+.audio-item { background: #0d0d20; border: 1px solid #2a2a4a; border-radius: 8px; padding: 10px 14px; display: flex; align-items: center; gap: 10px; }
+.audio-label { font-size: 0.75rem; color: #9090b0; min-width: 80px; }
+audio { flex: 1; height: 30px; }
+
+.video-wrap { text-align: center; }
+video { max-height: 500px; max-width: 300px; border-radius: 10px; border: 2px solid #2a2a4a; }
+.dl-btn { display: inline-block; margin-top: 12px; padding: 8px 20px; background: #7c3aed; color: #fff; text-decoration: none; border-radius: 7px; font-size: 0.85rem; font-weight: 600; }
+
+.error-box { background: #1a0505; border: 1px solid #7f1d1d; border-radius: 8px; padding: 14px; font-family: monospace; font-size: 0.7rem; color: #fca5a5; white-space: pre-wrap; overflow-x: auto; max-height: 300px; overflow-y: auto; }
+
+/* Params dans drawer */
+.param-group { margin-bottom: 14px; }
+.param-label { font-size: 0.72rem; color: #9090b0; margin-bottom: 5px; }
+.param-input, .param-textarea {
+  width: 100%; background: #0d0d20; border: 1px solid #2a2a4a; border-radius: 6px;
+  color: #d0d0f0; font-size: 0.75rem; padding: 7px 10px; font-family: monospace;
+  outline: none; resize: vertical;
+}
+.param-input:focus, .param-textarea:focus { border-color: #7c3aed; }
+.param-textarea { min-height: 80px; }
+
+/* Spinner */
+.spin { display: inline-block; width: 10px; height: 10px; border: 2px solid currentColor; border-top-color: transparent; border-radius: 50%; animation: spin 0.7s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.empty { text-align: center; padding: 60px 20px; color: #3a3a60; }
+.empty .ei { font-size: 2.5rem; margin-bottom: 12px; }
+</style>
+</head>
+<body>
+
+<header>
+  <a href="/tiktok/" style="font-size:0.75rem;color:#5a5a80;text-decoration:none;margin-right:12px;border:1px solid #2a2a4a;padding:4px 10px;border-radius:6px;transition:color 0.15s" onmouseover="this.style.color='#a0a0d0'" onmouseout="this.style.color='#5a5a80'">← Workflows</a>
+  <h1>🔮 TikTok Voyance</h1>
+  <span id="hdr-status" class="hdr-status">API...</span>
+</header>
+
+<div class="lightbox" id="lightbox" onclick="closeLightbox()">
+  <span class="lightbox-close">✕</span>
+  <img id="lightbox-img" src="">
+</div>
+
+<div class="layout">
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <h2>Sessions</h2>
+    <button class="btn-new" onclick="newJob()">＋ Nouvelle session</button>
+    <div class="jobs-list" id="jobs-list"></div>
+  </aside>
+
+  <!-- Main -->
+  <div class="main">
+
+    <!-- Pipeline strip -->
+    <div class="pipeline-strip" id="pipeline-strip">
+      <!-- nodes injected by JS -->
+    </div>
+
+    <!-- Detail panel -->
+    <div class="detail" id="detail">
+      <div class="detail-left" id="detail-left">
+        <div class="empty"><div class="ei">🃏</div><p>Crée une session et clique sur un agent</p></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="drawer-overlay" id="drawer-overlay" onclick="closeDrawer()"></div>
+<div class="drawer" id="drawer">
+  <div class="drawer-header">
+    <span class="drawer-title">⚙ Paramètres</span>
+    <button class="drawer-close" onclick="closeDrawer()">✕</button>
+  </div>
+  <div class="drawer-body" id="drawer-body"></div>
+</div>
+
+<div style="display:none">
+
+  </div>
+</div>
+
+<script>
+const API = location.hostname.includes('factorytiktok') ? '' : (location.pathname.match(/^(\/tiktok)/) || ['',''])[1];
+
+const AGENTS = [
+  { id:'content',       icon:'🧙', title:'Contenu',       sub:'Intro + thème + 3 cartes',   desc:'Génère l\'intro accrocheuse, le thème du tirage et les 3 cartes tarot avec prédictions via Claude.' },
+  { id:'image_prompts', icon:'✍️',  title:'Prompts',        sub:'Prompts pour les images',     desc:'Génère les prompts en anglais pour Fal.ai Flux (couverture + 3 cartes).' },
+  { id:'images',        icon:'🖼️', title:'Images',         sub:'Fal.ai Flux Schnell',         desc:'Génère les 4 images (couverture + 3 cartes retournées) via Fal.ai.' },
+  { id:'voice',         icon:'🎙️', title:'Voix',           sub:'ElevenLabs via Fal.ai',       desc:'Génère les segments audio (intro + cartes + outro) avec une voix mystérieuse.' },
+  { id:'video',         icon:'🎬', title:'Vidéo',          sub:'Assemblage FFmpeg',           desc:'Assemble la vidéo TikTok finale (1080×1920) avec les images et l\'audio.' },
+];
+
+let currentJobId = null;
+let currentAgent = null;
+let pollTimer = null;
+
+// ── Init ──────────────────────────────────────────────────────────────────
+
+async function init() {
+  await checkApi();
+  setInterval(checkApi, 30000);
+  // Charger les jobs existants, ou créer une session auto
+  const r = await fetch(`${API}/api/jobs`);
+  const d = await r.json();
+  if (d.jobs && d.jobs.length > 0) {
+    await selectJob(d.jobs[0].id);
+  } else {
+    await newJob();
+  }
+}
+
+async function checkApi() {
+  try {
+    const r = await fetch(`${API}/api/ping`);
+    const d = await r.json();
+    const el = document.getElementById('hdr-status');
+    el.textContent = `API OK • Fal.ai ${d.fal_configured ? '✓' : '✗'}`;
+    el.className = 'hdr-status ok';
+  } catch {
+    document.getElementById('hdr-status').textContent = 'API hors ligne';
+    document.getElementById('hdr-status').className = 'hdr-status';
+  }
+}
+
+// ── Jobs ──────────────────────────────────────────────────────────────────
+
+async function newJob() {
+  const r = await fetch(`${API}/api/jobs`, { method:'POST' });
+  const d = await r.json();
+  await loadJobs();
+  selectJob(d.job_id);
+}
+
+async function loadJobs() {
+  const r = await fetch(`${API}/api/jobs`);
+  const d = await r.json();
+  const list = document.getElementById('jobs-list');
+  if (!d.jobs || !d.jobs.length) {
+    list.innerHTML = '<div style="padding:16px;text-align:center;color:#3a3a60;font-size:0.75rem">Aucune session</div>';
+    return;
+  }
+  list.innerHTML = d.jobs.map(j => `
+    <div class="job-item ${j.id===currentJobId?'active':''}" onclick="selectJob('${j.id}')">
+      <div class="job-id">${j.id.replace('voyance_','')}</div>
+      <div class="job-status s-${j.status}">${statusLabel(j.status)}</div>
+    </div>
+  `).join('');
+}
+
+function statusLabel(s) {
+  return {idle:'⏸ Prêt', running:'⟳ En cours', done:'✓ Terminé', error:'✗ Erreur', pending:'…'}[s] || s;
+}
+
+async function selectJob(jobId) {
+  currentJobId = jobId;
+  currentAgent = 'content';
+  await loadJobs();
+  await refreshAndRender();
+  startPoll();
+}
+
+// ── Pipeline strip ────────────────────────────────────────────────────────
+
+function renderPipeline(job) {
+  const strip = document.getElementById('pipeline-strip');
+  if (!job) { strip.innerHTML = '<div style="color:#3a3a60;font-size:0.8rem;padding:20px">Crée ou sélectionne une session</div>'; return; }
+
+  let html = '';
+  AGENTS.forEach((ag, i) => {
+    const state = job.agents[ag.id] || {};
+    const st = state.status || 'pending';
+    const preview = getNodePreview(ag.id, state.result);
+    html += `
+      <div class="node ${st !== 'pending' ? 's-'+st : ''} ${currentAgent===ag.id?'active':''}"
+           onclick="selectAgent('${ag.id}')" id="node-${ag.id}">
+        <div class="node-head">
+          <span class="node-icon">${ag.icon}</span>
+          <div><div class="node-title">${ag.title}</div><div class="node-sub">${ag.sub}</div></div>
+        </div>
+        <div class="node-body">
+          <span class="badge b-${st}">${badgeContent(st)}</span>
+          ${preview ? `<div class="node-preview">${preview}</div>` : ''}
+        </div>
+      </div>
+      ${i < AGENTS.length-1 ? `<div class="arrow ${st==='done'?'lit':''}">→</div>` : ''}`;
+  });
+  strip.innerHTML = html;
+}
+
+function badgeContent(st) {
+  if (st==='running') return '<span class="spin"></span> En cours';
+  return {pending:'⏳ En attente', done:'✓ Fait', error:'✗ Erreur', running:''}[st] || st;
+}
+
+function getNodePreview(agentId, result) {
+  if (!result) return '';
+  if (agentId==='content') return `<strong>${result.theme_global||''}</strong>`;
+  if (agentId==='image_prompts') return `${Object.keys(result).length} prompts`;
+  if (agentId==='images') return `${Object.keys(result.images||{}).length} images`;
+  if (agentId==='voice') return `${Object.keys(result.audio_segments||{}).length} segments`;
+  if (agentId==='video') return result.video_path ? '📹 Prêt' : '';
+  return '';
+}
+
+// ── Agent detail ──────────────────────────────────────────────────────────
+
+async function selectAgent(agentId) {
+  currentAgent = agentId;
+  if (!currentJobId) return;
+  const r = await fetch(`${API}/api/jobs/${currentJobId}`);
+  const job = await r.json();
+  renderPipeline(job);
+  renderDetail(agentId, job);
+}
+
+function renderDetail(agentId, job) {
+  const ag = AGENTS.find(a => a.id === agentId);
+  const state = job.agents[agentId] || {};
+  const st = state.status || 'pending';
+  const isRunning = st === 'running';
+
+  // Prev agent result (to auto-fill params)
+  const prevResults = {};
+  AGENTS.forEach(a => { prevResults[a.id] = job.agents[a.id]?.result || null; });
+
+  const left = document.getElementById('detail-left');
+  const paramFields = buildParamFields(agentId, prevResults);
+  const hasParams = paramFields && !paramFields.includes('Lance') && !paramFields.includes('Aucun paramètre');
+
+  // ── Actions ──────────────────────────────────────────────────────────────
+  let actionsHtml = `
+    <div class="actions">
+      <button class="btn btn-primary" onclick="runAgent('${agentId}')" ${isRunning?'disabled':''}>
+        ${isRunning ? '<span class="spin"></span>' : '▶'} Lancer cet agent
+      </button>`;
+  if (agentId === 'content') {
+    actionsHtml += `<button class="btn btn-secondary" onclick="runAll()" ${isRunning?'disabled':''}>▶▶ Tout lancer</button>`;
+  }
+  if (st === 'done' || st === 'error') {
+    actionsHtml += `<button class="btn btn-secondary" onclick="runAgent('${agentId}')">↻ Relancer</button>`;
+  }
+  if (hasParams) {
+    actionsHtml += `<button class="btn btn-secondary" onclick="openDrawer('${agentId}')">⚙ Paramètres</button>`;
+  }
+  actionsHtml += `</div>`;
+
+  let outputHtml = '';
+  if (st === 'error' && state.error) {
+    outputHtml = `<div class="output-section"><h3>Erreur</h3><div class="error-box">${escHtml(state.error)}</div></div>`;
+  } else if (st === 'done' && state.result) {
+    outputHtml = renderOutput(agentId, state.result);
+  }
+
+  left.innerHTML = `
+    <div class="agent-header">
+      <span style="font-size:2rem">${ag.icon}</span>
+      <div><div class="agent-title">${ag.title}</div><div class="agent-desc">${ag.desc}</div></div>
+      <span class="badge b-${st}" style="margin-left:auto">${badgeContent(st)}</span>
+    </div>
+    ${actionsHtml}
+    ${outputHtml || (st==='pending'?'<div style="color:#4a4a70;font-size:0.85rem">Lance cet agent pour voir les résultats.</div>':'')}`;
+}
+
+function renderOutput(agentId, result) {
+  if (agentId === 'content') {
+    let html = `<div class="output-section">`;
+    if (result.theme_global) html += `<span class="theme-tag">✨ ${result.theme_global}</span>`;
+    if (result.intro_text) html += `<div class="text-box">💬 ${result.intro_text}</div>`;
+    if (result.cards) {
+      html += `<div class="content-cards">`;
+      result.cards.forEach(c => {
+        html += `<div class="card-box">
+          <div class="cn">${c.label}</div>
+          <div class="ct">🃏 ${c.tarot_card}</div>
+          <span class="ce">⚡ ${c.energy}</span>
+          <div class="cp">${c.prediction}</div>
+        </div>`;
+      });
+      html += `</div>`;
+    }
+    if (result.outro_text) html += `<div class="text-box" style="margin-top:10px">🌙 ${result.outro_text}</div>`;
+    html += `</div>`;
+    return html;
+  }
+
+  if (agentId === 'image_prompts') {
+    let html = `<div class="output-section"><div class="prompts-list">`;
+    if (result.cover_prompt) {
+      html += `<div class="prompt-item"><div class="prompt-label">🖼 Couverture</div><div class="prompt-text">${escHtml(result.cover_prompt)}</div></div>`;
+    }
+    (result.card_prompts || []).forEach(cp => {
+      html += `<div class="prompt-item"><div class="prompt-label">🃏 Carte ${cp.number}</div><div class="prompt-text">${escHtml(cp.prompt)}</div></div>`;
+    });
+    html += `</div></div>`;
+    return html;
+  }
+
+  if (agentId === 'images') {
+    const imgs = result.images || {};
+    let html = `<div class="output-section"><div class="images-grid">`;
+    Object.entries(imgs).forEach(([key, path]) => {
+      const url = path.replace('/home/claude-user/tiktok-voyance', API);
+      html += `<div class="img-box" onclick="openLightbox('${url}')"><img src="${url}" alt="${key}" onerror="this.parentElement.style.background='#1a1a35'"><div class="img-label">${key}</div></div>`;
+    });
+    html += `</div></div>`;
+    return html;
+  }
+
+  if (agentId === 'voice') {
+    const segs = result.audio_segments || {};
+    let html = `<div class="output-section"><div class="audio-list">`;
+    Object.entries(segs).forEach(([key, path]) => {
+      const url = path.replace('/home/claude-user/tiktok-voyance', API);
+      html += `<div class="audio-item"><span class="audio-label">🔊 ${key}</span><audio controls src="${url}"></audio></div>`;
+    });
+    html += `</div></div>`;
+    return html;
+  }
+
+  if (agentId === 'video') {
+    if (result.video_path) {
+      const url = result.video_path.replace('/home/claude-user/tiktok-voyance', API);
+      return `<div class="video-wrap"><video controls src="${url}"></video><br><a class="dl-btn" href="${url}" download>⬇ Télécharger</a></div>`;
+    }
+    return '<div style="color:#4a4a70">Pas encore de vidéo</div>';
+  }
+
+  return `<pre style="font-size:0.72rem;color:#8080a0;white-space:pre-wrap">${JSON.stringify(result,null,2)}</pre>`;
+}
+
+function buildParamFields(agentId, prevResults) {
+  // Pour content : pas de params éditables (juste la date du jour)
+  if (agentId === 'content') {
+    return `<div style="color:#5a5a80;font-size:0.78rem">L'agent utilise la date du jour automatiquement. Aucun paramètre requis.</div>`;
+  }
+
+  if (agentId === 'image_prompts') {
+    const content = prevResults['content'];
+    if (!content) return `<div style="color:#5a5a80;font-size:0.78rem">Lance l'agent Contenu d'abord.</div>`;
+    return `
+      <div class="param-group">
+        <div class="param-label">Style visuel (ajouté aux prompts)</div>
+        <input class="param-input" id="param-style" value="mystical tarot card, dark purple and gold, ornate border, candlelight, ultra detailed, tarot art style">
+      </div>
+      <div style="color:#5a5a80;font-size:0.72rem">Thème détecté : <strong style="color:#c084fc">${content.theme_global}</strong></div>`;
+  }
+
+  if (agentId === 'images') {
+    const ip = prevResults['image_prompts'];
+    if (!ip) return `<div style="color:#5a5a80;font-size:0.78rem">Lance l'agent Prompts d'abord.</div>`;
+    // Editable prompts
+    let html = `<div style="color:#5a5a80;font-size:0.72rem;margin-bottom:10px">Tu peux modifier les prompts avant de relancer :</div>`;
+    if (ip.cover_prompt) {
+      html += `<div class="param-group"><div class="param-label">Prompt couverture</div>
+        <textarea class="param-textarea" id="param-cover" rows="3">${escHtml(ip.cover_prompt)}</textarea></div>`;
+    }
+    (ip.card_prompts||[]).forEach(cp => {
+      html += `<div class="param-group"><div class="param-label">Carte ${cp.number}</div>
+        <textarea class="param-textarea" id="param-card${cp.number}" rows="3">${escHtml(cp.prompt)}</textarea></div>`;
+    });
+    return html;
+  }
+
+  if (agentId === 'voice') {
+    return `
+      <div class="param-group">
+        <div class="param-label">Voix ElevenLabs</div>
+        <select class="param-input" id="param-voice">
+          <option value="Charlotte">Charlotte (féminine, mystérieuse)</option>
+          <option value="Lily">Lily (douce)</option>
+          <option value="Rachel">Rachel (naturelle)</option>
+          <option value="Alice">Alice (française)</option>
+          <option value="Aria">Aria (dramatique)</option>
+        </select>
+      </div>
+      <div class="param-group">
+        <div class="param-label">Vitesse (0.7 = lent, 1.0 = normal)</div>
+        <input class="param-input" id="param-speed" type="number" min="0.7" max="1.2" step="0.05" value="0.90">
+      </div>`;
+  }
+
+  if (agentId === 'video') {
+    return `<div style="color:#5a5a80;font-size:0.78rem">L'agent assemble les images et l'audio générés. Lance les agents Images et Voix d'abord.</div>`;
+  }
+
+  return null;
+}
+
+// ── Run agent ─────────────────────────────────────────────────────────────
+
+async function runAgent(agentId) {
+  if (!currentJobId) return;
+
+  // Récupérer les params éditables
+  const body = collectParams(agentId);
+
+  const r = await fetch(`${API}/api/jobs/${currentJobId}/run/${agentId}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+
+  if (!r.ok) {
+    const err = await r.json();
+    alert('Erreur: ' + (err.detail || r.status));
+    return;
+  }
+
+  // Refresh immédiat
+  await refreshAndRender();
+  startPoll();
+}
+
+async function runAll() {
+  if (!currentJobId) return;
+  await fetch(`${API}/api/jobs/${currentJobId}/run-all`, { method:'POST' });
+  await refreshAndRender();
+  startPoll();
+}
+
+function collectParams(agentId) {
+  const body = {};
+
+  if (agentId === 'images') {
+    // Récupérer les prompts édités
+    const coverEl = document.getElementById('param-cover');
+    const imagePrompts = { card_prompts: [] };
+    if (coverEl) imagePrompts.cover_prompt = coverEl.value;
+    [1,2,3].forEach(n => {
+      const el = document.getElementById(`param-card${n}`);
+      if (el) imagePrompts.card_prompts.push({ number: n, prompt: el.value });
+    });
+    if (coverEl || document.getElementById('param-card1')) {
+      body.image_prompts = imagePrompts;
+    }
+  }
+
+  if (agentId === 'voice') {
+    const voiceEl = document.getElementById('param-voice');
+    const speedEl = document.getElementById('param-speed');
+    if (voiceEl) body.voice = voiceEl.value;
+    if (speedEl) body.speed = parseFloat(speedEl.value);
+  }
+
+  return body;
+}
+
+// ── Poll & refresh ────────────────────────────────────────────────────────
+
+function startPoll() {
+  if (pollTimer) clearInterval(pollTimer);
+  pollTimer = setInterval(async () => {
+    if (!currentJobId) return;
+    const job = await fetchJob(currentJobId);
+    if (!job) return;
+    renderPipeline(job);
+    // Refresh detail du noeud courant si en cours
+    if (currentAgent) {
+      renderDetail(currentAgent, job);
+    }
+    await loadJobs();
+    // Stop poll si terminé ou erreur (pas sur idle — un agent peut démarrer)
+    if (['done','error'].includes(job.status)) {
+      clearInterval(pollTimer);
+      pollTimer = null;
+    }
+  }, 2000);
+}
+
+async function refreshAndRender() {
+  const job = await fetchJob(currentJobId);
+  if (!job) return;
+  renderPipeline(job);
+  if (currentAgent) renderDetail(currentAgent, job);
+  await loadJobs();
+}
+
+async function fetchJob(jobId) {
+  try {
+    const r = await fetch(`${API}/api/jobs/${jobId}`);
+    if (!r.ok) return null;
+    return await r.json();
+  } catch { return null; }
+}
+
+function openLightbox(url) {
+  document.getElementById('lightbox-img').src = url;
+  document.getElementById('lightbox').classList.add('open');
+}
+function closeLightbox() {
+  document.getElementById('lightbox').classList.remove('open');
+}
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeLightbox(); });
+
+function openDrawer(agentId) {
+  fetchJob(currentJobId).then(job => {
+    const prevResults = {};
+    AGENTS.forEach(a => { prevResults[a.id] = job.agents[a.id]?.result || null; });
+    const fields = buildParamFields(agentId, prevResults);
+    document.getElementById('drawer-body').innerHTML = fields || '';
+    document.getElementById('drawer').classList.add('open');
+    document.getElementById('drawer-overlay').classList.add('open');
+  });
+}
+function closeDrawer() {
+  document.getElementById('drawer').classList.remove('open');
+  document.getElementById('drawer-overlay').classList.remove('open');
+}
+document.addEventListener('keydown', e => { if (e.key==='Escape') { closeLightbox?.(); closeDrawer(); } });
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ── Boot ──────────────────────────────────────────────────────────────────
+init();
+</script>
+</body>
+</html>
