@@ -291,37 +291,95 @@ header .sub { font-size: 0.75rem; color: #5a5a80; margin-top: 3px; }
   </div>
 
   <!-- Médiathèque -->
-  <div class="section-title" style="margin-top:40px">Médiathèque</div>
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-top:48px;margin-bottom:16px">
+    <div class="section-title" style="margin-bottom:0">Médiathèque</div>
+    <div style="display:flex;align-items:center;gap:10px">
+      <span id="media-stats" style="font-size:0.7rem;color:#5a5a80"></span>
+      <select id="media-filter" onchange="loadMedia()" style="background:#12112a;border:1px solid #2a2a4a;color:#a0a0d0;font-size:0.75rem;padding:4px 10px;border-radius:8px;outline:none;cursor:pointer">
+        <option value="">Tous les WF</option>
+        <option value="voyance">Voyance</option>
+        <option value="prediction">Prédiction</option>
+        <option value="pendule">Pendule</option>
+        <option value="retournement">Retournement</option>
+        <option value="video">Vidéo Tarot</option>
+        <option value="satisfying">Satisfying</option>
+        <option value="histoire">Histoire</option>
+        <option value="histoire2">Histoire 2</option>
+      </select>
+      <select id="media-type" onchange="loadMedia()" style="background:#12112a;border:1px solid #2a2a4a;color:#a0a0d0;font-size:0.75rem;padding:4px 10px;border-radius:8px;outline:none;cursor:pointer">
+        <option value="">Tout</option>
+        <option value="video">Vidéos</option>
+        <option value="image">Images</option>
+      </select>
+    </div>
+  </div>
   <div id="media-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px"></div>
 </div>
 
 <style>
-.media-item { background:#12112a; border:1px solid #1e1e3a; border-radius:10px; overflow:hidden; }
+.media-item { background:#12112a; border:1px solid #1e1e3a; border-radius:10px; overflow:hidden; position:relative; }
 .media-item video, .media-item img { width:100%; height:200px; object-fit:cover; display:block; }
-.media-meta { padding:8px 10px; }
-.media-name { font-size:0.65rem; color:#6060a0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-bottom:4px; }
-.media-dl { display:block; text-align:center; padding:5px; background:#1a1a35; color:#a78bfa; font-size:0.72rem; text-decoration:none; border-top:1px solid #1e1e3a; }
+.media-meta { padding:6px 10px 8px; }
+.media-name { font-size:0.62rem; color:#6060a0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-bottom:2px; }
+.media-wf { display:inline-block; font-size:0.58rem; padding:1px 6px; border-radius:10px; background:#1a1a35; color:#7070a0; margin-bottom:4px; }
+.media-actions { display:flex; border-top:1px solid #1e1e3a; }
+.media-dl { flex:1; text-align:center; padding:5px; background:#1a1a35; color:#a78bfa; font-size:0.72rem; text-decoration:none; }
 .media-dl:hover { background:#2a1a5a; }
+.media-del { padding:5px 10px; background:#1a1a35; color:#f87171; font-size:0.72rem; border:none; cursor:pointer; border-left:1px solid #1e1e3a; }
+.media-del:hover { background:#2a1020; }
 </style>
 
 <script>
 const API = location.hostname.includes('factorytiktok') ? '' : 'http://localhost:8401';
-fetch(`${API}/api/media`).then(r=>r.json()).then(data => {
+
+async function loadMedia() {
+  const wf = document.getElementById('media-filter').value;
+  const typeFilter = document.getElementById('media-type').value;
   const grid = document.getElementById('media-grid');
-  if (!data.files?.length) { grid.innerHTML = '<div style="color:#3a3a60;font-size:0.8rem">Aucun fichier généré</div>'; return; }
-  grid.innerHTML = data.files.map(f => `
-    <div class="media-item">
-      ${f.type === 'video'
-        ? `<video src="${API}${f.url}" muted loop playsinline onmouseenter="this.play()" onmouseleave="this.pause();this.currentTime=0"></video>`
-        : `<img src="${API}${f.url}" loading="lazy">`}
-      <div class="media-meta">
-        <div class="media-name">${f.name}</div>
-        <div style="font-size:0.6rem;color:#4a4a70">${f.size_mb} MB</div>
+  grid.innerHTML = '<div style="color:#3a3a60;font-size:0.8rem;padding:20px">Chargement...</div>';
+  try {
+    const url = `${API}/api/media` + (wf ? `?wf=${wf}` : '');
+    const data = await fetch(url).then(r => r.json());
+    let files = data.files || [];
+    if (typeFilter) files = files.filter(f => f.type === typeFilter);
+    document.getElementById('media-stats').textContent = `${files.length} fichiers — ${data.total_mb} MB`;
+    if (!files.length) { grid.innerHTML = '<div style="color:#3a3a60;font-size:0.8rem">Aucun fichier</div>'; return; }
+    grid.innerHTML = files.map(f => `
+      <div class="media-item" id="mi-${btoa(f.path).replace(/=/g,'')}">
+        ${f.type === 'video'
+          ? `<video src="${API}${f.url}" muted loop playsinline onmouseenter="this.play()" onmouseleave="this.pause();this.currentTime=0"></video>`
+          : `<img src="${API}${f.url}" loading="lazy">`}
+        <div class="media-meta">
+          <span class="media-wf">${f.wf}</span>
+          <div class="media-name" title="${f.name}">${f.name}</div>
+          <div style="font-size:0.58rem;color:#4a4a70">${f.size_mb} MB</div>
+        </div>
+        <div class="media-actions">
+          <a class="media-dl" href="${API}${f.url}" download="${f.name}">⬇</a>
+          <button class="media-del" onclick="deleteMedia('${f.path.replace(/'/g,"\\'")}', this)" title="Supprimer">🗑</button>
+        </div>
       </div>
-      <a class="media-dl" href="${API}${f.url}" download="${f.name}">⬇ Télécharger</a>
-    </div>
-  `).join('');
-});
+    `).join('');
+  } catch(e) {
+    grid.innerHTML = '<div style="color:#f87171;font-size:0.8rem">Erreur de chargement</div>';
+  }
+}
+
+async function deleteMedia(path, btn) {
+  if (!confirm(`Supprimer ${path.split('/').pop()} ?`)) return;
+  btn.disabled = true; btn.textContent = '…';
+  try {
+    const r = await fetch(`${API}/api/media`, {
+      method: 'DELETE',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({path})
+    });
+    if (r.ok) loadMedia();
+    else { btn.textContent = '🗑'; btn.disabled = false; }
+  } catch(e) { btn.textContent = '🗑'; btn.disabled = false; }
+}
+
+loadMedia();
 </script>
 
 <script>

@@ -1105,39 +1105,64 @@ def tiktok_url_ownership():
     return HTMLResponse("tiktok-developers-site-verification=8Wyxk9Nk49EIUDBoiN4Wtmjx80vAGsFH")
 
 
-@app.get("/api/media")
-def list_media():
-    """Liste tous les fichiers médias générés (images + vidéos)."""
-    import os
-    from pathlib import Path
-    dirs = [
-        Path("/home/claude-user/tiktok-factory/output/video_jobs"),
-        Path("/home/claude-user/tiktok-factory/output/prediction_jobs"),
-        Path("/home/claude-user/tiktok-factory/output"),
-    ]
-    files = []
-    for d in dirs:
-        if not d.exists():
-            continue
-        for f in sorted(d.iterdir(), key=lambda x: x.stat().st_mtime, reverse=True):
-            if f.suffix.lower() in (".mp4", ".jpg", ".jpeg", ".png", ".gif"):
+# WF → dossiers output associés
+_WF_DIRS = {
+    "voyance":     ["output/images", "output/videos", "output/audio"],
+    "prediction":  ["output/prediction"],
+    "pendule":     ["output/pendule"],
+    "retournement":["output/retournement", "output/retournement_sources"],
+    "video":       ["output/video_jobs", "output/video_refs", "output/video_assets"],
+    "satisfying":  ["output/satisfying"],
+    "histoire":    ["output/histoire"],
+    "histoire2":   ["output/histoire2"],
+}
+_MEDIA_EXTS = {".mp4", ".jpg", ".jpeg", ".png", ".gif", ".webp"}
+_BASE = Path("/home/claude-user/tiktok-factory")
+
+def _scan_media(wf_filter: str = None):
+    entries = []
+    wfs = {wf_filter: _WF_DIRS[wf_filter]} if wf_filter and wf_filter in _WF_DIRS else _WF_DIRS
+    for wf, dirs in wfs.items():
+        for rel in dirs:
+            d = _BASE / rel
+            if not d.exists():
+                continue
+            for f in d.rglob("*"):
+                if f.suffix.lower() not in _MEDIA_EXTS or not f.is_file():
+                    continue
                 stat = f.stat()
-                url = str(f).replace("/home/claude-user/tiktok-factory", "")
-                files.append({
+                entries.append({
                     "name": f.name,
-                    "url": url,
-                    "size_mb": round(stat.st_size / 1024 / 1024, 1),
+                    "url": str(f).replace(str(_BASE), ""),
+                    "path": str(f),
+                    "wf": wf,
+                    "size_mb": round(stat.st_size / 1024 / 1024, 2),
                     "type": "video" if f.suffix == ".mp4" else "image",
                     "mtime": stat.st_mtime,
                 })
-    # Dédupliquer par nom
-    seen = set()
-    unique = []
-    for f in files:
-        if f["name"] not in seen:
-            seen.add(f["name"])
-            unique.append(f)
-    return {"files": unique[:100]}
+    entries.sort(key=lambda x: x["mtime"], reverse=True)
+    return entries
+
+@app.get("/api/media")
+def list_media(wf: str = None):
+    """Liste tous les fichiers médias, optionnellement filtrés par workflow."""
+    files = _scan_media(wf)
+    total_mb = round(sum(f["size_mb"] for f in files), 1)
+    return {"files": files, "total_mb": total_mb, "count": len(files)}
+
+@app.delete("/api/media")
+def delete_media(path: str = Body(..., embed=True)):
+    """Supprime un fichier média par son chemin relatif."""
+    full = _BASE / path.lstrip("/")
+    # Sécurité : rester dans output/
+    try:
+        full.resolve().relative_to((_BASE / "output").resolve())
+    except ValueError:
+        raise HTTPException(400, "Chemin invalide")
+    if not full.exists():
+        raise HTTPException(404, "Fichier introuvable")
+    full.unlink()
+    return {"ok": True, "deleted": path}
 
 
 # ─── Histoire workflow routes ─────────────────────────────────────────────────
