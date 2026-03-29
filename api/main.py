@@ -478,6 +478,8 @@ def _video_agent_run(job_id: str, agent_name: str):
 @app.post("/api/video/cron")
 def video_cron():
     """Lance le pipeline vidéo complet automatiquement (cron midi Hanoï = 5h UTC)."""
+    if not is_workflow_enabled("video"):
+        return {"ok": False, "reason": "workflow disabled"}
     def full_pipeline():
         os.environ["FAL_KEY"] = FAL_KEY
         import sys
@@ -1237,6 +1239,8 @@ def hist_run_agent(job_id: str, agent_name: str):
 @app.post("/api/histoire/cron")
 def hist_cron():
     """Lance le pipeline histoire complet automatiquement."""
+    if not is_workflow_enabled("histoire"):
+        return {"ok": False, "reason": "workflow disabled"}
     def full_pipeline():
         os.environ["FAL_KEY"] = FAL_KEY
         os.environ["KIE_KEY"] = KIE_KEY
@@ -1407,3 +1411,37 @@ def hist2_run_agent(job_id: str, agent_name: str):
         raise HTTPException(400, f"Unknown agent: {agent_name}")
     threading.Thread(target=_hist2_run_agent, args=(job_id, agent_name), daemon=True).start()
     return {"ok": True, "agent": agent_name}
+
+
+# ── Workflow Enable/Disable ──────────────────────────────────────────────────
+
+WORKFLOWS_ENABLED_FILE = DATA_DIR / "workflows_enabled.json"
+KNOWN_WORKFLOWS = ["prediction", "video", "histoire", "histoire2", "retournement", "satisfying", "pendule"]
+
+def _load_workflows_enabled() -> dict:
+    if WORKFLOWS_ENABLED_FILE.exists():
+        try:
+            return json.loads(WORKFLOWS_ENABLED_FILE.read_text())
+        except Exception:
+            pass
+    return {wf: True for wf in KNOWN_WORKFLOWS}
+
+def _save_workflows_enabled(state: dict):
+    WORKFLOWS_ENABLED_FILE.write_text(json.dumps(state, indent=2))
+
+def is_workflow_enabled(name: str) -> bool:
+    return _load_workflows_enabled().get(name, True)
+
+@app.get("/api/workflows/status")
+def get_workflows_status():
+    state = _load_workflows_enabled()
+    return {wf: state.get(wf, True) for wf in KNOWN_WORKFLOWS}
+
+@app.post("/api/workflows/{name}/toggle")
+def toggle_workflow(name: str):
+    if name not in KNOWN_WORKFLOWS:
+        raise HTTPException(400, f"Workflow inconnu: {name}")
+    state = _load_workflows_enabled()
+    state[name] = not state.get(name, True)
+    _save_workflows_enabled(state)
+    return {"workflow": name, "enabled": state[name]}

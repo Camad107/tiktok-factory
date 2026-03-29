@@ -97,6 +97,22 @@ header .sub { font-size: 0.75rem; color: #5a5a80; margin-top: 3px; }
 }
 .status-active { background: #063020; color: #10b981; }
 .status-draft { background: #1e1e38; color: #6b7280; }
+
+.wf-toggle {
+  position: absolute; bottom: 14px; right: 14px;
+  width: 36px; height: 20px; border-radius: 10px;
+  background: #2a2a4a; border: none; cursor: pointer;
+  transition: background 0.2s; padding: 0; outline: none;
+  z-index: 10;
+}
+.wf-toggle::after {
+  content: ''; display: block;
+  width: 14px; height: 14px; border-radius: 50%;
+  background: #5a5a80; margin: 3px; transition: all 0.2s;
+}
+.wf-toggle.on { background: #1a4030; }
+.wf-toggle.on::after { background: #10b981; transform: translateX(16px); }
+.wf-card.cron-disabled { opacity: 0.5; }
 </style>
 </head>
 <body>
@@ -133,8 +149,9 @@ header .sub { font-size: 0.75rem; color: #5a5a80; margin-top: 3px; }
     </a>
 
     <!-- Prédiction 4 Images -->
-    <a class="wf-card" href="javascript:void(0)" onclick="location.href=(location.hostname.includes('factorytiktok')?'/?wf=prediction':'/tiktok/?wf=prediction')" style="--accent:#f59e0b">
+    <a class="wf-card" id="card-prediction" href="javascript:void(0)" onclick="location.href=(location.hostname.includes('factorytiktok')?'/?wf=prediction':'/tiktok/?wf=prediction')" style="--accent:#f59e0b">
       <span class="wf-status status-active">● Actif</span>
+      <button class="wf-toggle" id="toggle-prediction" title="Activer/désactiver le cron automatique" onclick="event.preventDefault();event.stopPropagation();toggleWf('prediction')"></button>
       <div class="wf-icon">✨</div>
       <div class="wf-name">Prédiction 4 Images</div>
       <div class="wf-desc">Choisis ton symbole — 4 images cohérentes avec texte superposé. Format carrousel TikTok.</div>
@@ -190,8 +207,9 @@ header .sub { font-size: 0.75rem; color: #5a5a80; margin-top: 3px; }
     </a>
 
     <!-- Vidéo Tarot Kling -->
-    <a class="wf-card" href="javascript:void(0)" onclick="location.href=(location.hostname.includes('factorytiktok')?'/?wf=video':'/tiktok/?wf=video')" style="--accent:#f43f5e">
+    <a class="wf-card" id="card-video" href="javascript:void(0)" onclick="location.href=(location.hostname.includes('factorytiktok')?'/?wf=video':'/tiktok/?wf=video')" style="--accent:#f43f5e">
       <span class="wf-status status-active">● Actif</span>
+      <button class="wf-toggle" id="toggle-video" title="Activer/désactiver le cron automatique" onclick="event.preventDefault();event.stopPropagation();toggleWf('video')"></button>
       <div class="wf-icon">🎬</div>
       <div class="wf-name">Vidéo Tarot</div>
       <div class="wf-desc">Génère une vidéo de révélation de carte tarot via Kling O3 — first frame → last frame, mouvement IA cinématographique.</div>
@@ -227,8 +245,9 @@ header .sub { font-size: 0.75rem; color: #5a5a80; margin-top: 3px; }
     </a>
 
     <!-- Histoire du Jour -->
-    <a class="wf-card" href="javascript:void(0)" onclick="location.href=(location.hostname.includes('factorytiktok')?'/?wf=histoire':'/tiktok/?wf=histoire')" style="--accent:#e55">
+    <a class="wf-card" id="card-histoire" href="javascript:void(0)" onclick="location.href=(location.hostname.includes('factorytiktok')?'/?wf=histoire':'/tiktok/?wf=histoire')" style="--accent:#e55">
       <span class="wf-status status-active">● Actif</span>
+      <button class="wf-toggle" id="toggle-histoire" title="Activer/désactiver le cron automatique" onclick="event.preventDefault();event.stopPropagation();toggleWf('histoire')"></button>
       <div class="wf-icon">📅</div>
       <div class="wf-name">Histoire du Jour</div>
       <div class="wf-desc">Événement historique viral du jour — faits choc, mystères, insolite. Hook dramatique + overlay date + vidéo loop 5s.</div>
@@ -303,6 +322,39 @@ fetch(`${API}/api/media`).then(r=>r.json()).then(data => {
     </div>
   `).join('');
 });
+</script>
+
+<script>
+// Workflow cron toggles
+const CRON_WFS = ['prediction', 'video', 'histoire'];
+
+async function loadWfStatus() {
+  try {
+    const r = await fetch(`${API}/api/workflows/status`);
+    const data = await r.json();
+    CRON_WFS.forEach(wf => {
+      const btn = document.getElementById(`toggle-${wf}`);
+      const card = document.getElementById(`card-${wf}`);
+      if (!btn) return;
+      const enabled = data[wf] !== false;
+      btn.classList.toggle('on', enabled);
+      card.classList.toggle('cron-disabled', !enabled);
+    });
+  } catch(e) {}
+}
+
+async function toggleWf(wf) {
+  try {
+    const r = await fetch(`${API}/api/workflows/${wf}/toggle`, {method: 'POST'});
+    const data = await r.json();
+    const btn = document.getElementById(`toggle-${wf}`);
+    const card = document.getElementById(`card-${wf}`);
+    btn.classList.toggle('on', data.enabled);
+    card.classList.toggle('cron-disabled', !data.enabled);
+  } catch(e) {}
+}
+
+loadWfStatus();
 </script>
 
 </body>

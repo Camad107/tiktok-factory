@@ -47,7 +47,20 @@ def _save_job(job: dict):
     PRED_JOBS_FILE.write_text(json.dumps(store, indent=2))
 
 
+def _is_enabled(wf: str) -> bool:
+    cfg = DATA_DIR / "workflows_enabled.json"
+    if cfg.exists():
+        try:
+            return json.loads(cfg.read_text()).get(wf, True)
+        except Exception:
+            pass
+    return True
+
+
 def run():
+    if not _is_enabled("prediction"):
+        log("=== Daily run (prediction) désactivé — skip ===")
+        return
     log("=== Daily run démarré ===")
     job_id = f"pred_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:6]}"
     log(f"Job ID: {job_id}")
