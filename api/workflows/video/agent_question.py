@@ -20,40 +20,40 @@ SUBJECTS = [
 
 CARDS = {
     "positive": [
-        {"id": "soleil",   "name": "The Sun",            "name_fr": "Le Soleil",          "meaning": "Everything will go wonderfully. Bright energy surrounds you."},
-        {"id": "etoile",   "name": "The Star",           "name_fr": "L'Étoile",           "meaning": "Beautiful energy ahead. Hope and renewal are on your side."},
-        {"id": "monde",    "name": "The World",          "name_fr": "Le Monde",           "meaning": "Success and accomplishment await you. You are aligned."},
-        {"id": "roue",     "name": "Wheel of Fortune",   "name_fr": "La Roue de Fortune", "meaning": "Luck is turning in your favor. Embrace the change."},
-        {"id": "imperatrice", "name": "The Empress",     "name_fr": "L'Impératrice",      "meaning": "Abundance and warmth surround you. Trust the flow."},
+        {"id": "soleil",      "name": "The Sun",          "name_fr": "Le Soleil",          "meaning": "Everything will go wonderfully. Bright energy surrounds you.",        "meaning_fr": "Tout va merveilleusement bien. Une énergie lumineuse t'entoure."},
+        {"id": "etoile",      "name": "The Star",         "name_fr": "L'Étoile",           "meaning": "Beautiful energy ahead. Hope and renewal are on your side.",          "meaning_fr": "Une belle énergie t'attend. L'espoir et le renouveau sont de ton côté."},
+        {"id": "monde",       "name": "The World",        "name_fr": "Le Monde",           "meaning": "Success and accomplishment await you. You are aligned.",              "meaning_fr": "Le succès et l'accomplissement t'attendent. Tu es en alignement."},
+        {"id": "roue",        "name": "Wheel of Fortune", "name_fr": "La Roue de Fortune", "meaning": "Luck is turning in your favor. Embrace the change.",                 "meaning_fr": "La chance tourne en ta faveur. Accueille ce changement."},
+        {"id": "imperatrice", "name": "The Empress",      "name_fr": "L'Impératrice",      "meaning": "Abundance and warmth surround you. Trust the flow.",                 "meaning_fr": "L'abondance et la douceur t'entourent. Fais confiance au flot."},
     ],
     "neutral": [
-        {"id": "jugement", "name": "Judgement",          "name_fr": "Le Jugement",        "meaning": "A transition is underway. Results may be mixed — stay grounded."},
-        {"id": "lune",     "name": "The Moon",           "name_fr": "La Lune",            "meaning": "Uncertainty clouds the path. Trust your intuition, not appearances."},
-        {"id": "pendu",    "name": "The Hanged Man",     "name_fr": "Le Pendu",           "meaning": "Patience is required. A pause now leads to clarity later."},
+        {"id": "jugement", "name": "Judgement",   "name_fr": "Le Jugement", "meaning": "A transition is underway. Results may be mixed — stay grounded.",       "meaning_fr": "Une transition est en cours. Les résultats peuvent être mitigés — reste ancré."},
+        {"id": "lune",     "name": "The Moon",    "name_fr": "La Lune",     "meaning": "Uncertainty clouds the path. Trust your intuition, not appearances.",   "meaning_fr": "L'incertitude voile le chemin. Fais confiance à ton intuition."},
+        {"id": "pendu",    "name": "The Hanged Man", "name_fr": "Le Pendu", "meaning": "Patience is required. A pause now leads to clarity later.",             "meaning_fr": "La patience est de mise. Une pause maintenant mène à la clarté."},
     ],
     "negative": [
-        {"id": "tour",     "name": "The Tower",          "name_fr": "La Tour",            "meaning": "Disruption is coming. Brace for impact — but it clears the way."},
-        {"id": "diable",   "name": "The Devil",          "name_fr": "Le Diable",          "meaning": "Tension and blockages are present. Awareness is your first step out."},
+        {"id": "tour",   "name": "The Tower", "name_fr": "La Tour",   "meaning": "Disruption is coming. Brace for impact — but it clears the way.", "meaning_fr": "Une perturbation arrive. Tiens bon — cela libère le chemin."},
+        {"id": "diable", "name": "The Devil", "name_fr": "Le Diable", "meaning": "Tension and blockages are present. Awareness is your first step out.", "meaning_fr": "Des tensions et blocages sont présents. La prise de conscience est ta première sortie."},
     ],
 }
 
-PROMPT = """You are a tarot oracle. Answer concisely and directly.
+PROMPT = """Tu es un oracle tarot. Réponds de façon concise et directe.
 
-Today: {date}
-Subject: {subject}
-Question asked to the viewer: "{question}"
-Card drawn: {card_name} ({card_id}) — outcome: {outcome}
+Aujourd'hui : {date}
+Sujet : {subject}
+Question posée au spectateur : "{question}"
+Carte tirée : {card_name} ({card_id}) — énergie : {outcome}
 
-Write a short reading (2-3 sentences max) for this card, tied to the subject and outcome.
-Also write a short TikTok hook.
+Écris une courte lecture (2-3 phrases max) pour cette carte, liée au sujet et à l'énergie.
+Écris aussi un court hook TikTok.
 
-Reply ONLY in this exact JSON format:
+Réponds UNIQUEMENT dans ce format JSON exact :
 {{
-  "reading": "2-3 sentence reading in English, direct and personal, no emoji",
-  "hook": "short intriguing hook for TikTok (max 8 words, no emoji, no question mark)"
+  "reading": "lecture de 2-3 phrases en français, directe et personnelle, sans emoji",
+  "hook": "hook court et intrigant pour TikTok (max 8 mots, sans emoji, sans point d'interrogation)"
 }}
 
-Reply ONLY with the JSON."""
+Réponds UNIQUEMENT avec le JSON."""
 
 
 def pick_subject(day_seed: int) -> dict:
@@ -90,8 +90,8 @@ def run(params: dict = None) -> dict:
     prompt = PROMPT.format(
         date=today.strftime("%B %d, %Y"),
         subject=subject["id"],
-        question=subject["question"],
-        card_name=card["name"],
+        question=subject["question_fr"],
+        card_name=card["name_fr"],
         card_id=card["id"],
         outcome=outcome,
     )
@@ -104,6 +104,8 @@ def run(params: dict = None) -> dict:
         raise RuntimeError(f"Claude CLI error: {result.stderr}")
 
     raw = result.stdout.strip()
+    if not raw:
+        raise RuntimeError(f"Claude CLI empty stdout. stderr: {result.stderr!r}")
     if "```" in raw:
         raw = raw.split("```")[1]
         if raw.startswith("json"):

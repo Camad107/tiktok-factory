@@ -238,11 +238,11 @@ function renderSettingsPanel() {
     const url = settings.last_frames?.[c.id];
     const outcomeClass = `outcome-${c.outcome}`;
     const outcomeLabel = {positive:'✅',neutral:'🟡',negative:'❌'}[c.outcome];
-    return `<div class="card-slot ${url?'has-image':''}" onclick="triggerCardUpload('${c.id}')" id="slot-${c.id}">
+    return `<div class="card-slot ${url?'has-image':''}" onclick="triggerCardUpload('${c.id}')" id="slot-${c.id}" style="position:relative">
       <div class="card-slot-name">${c.name}</div>
       <div class="card-slot-outcome ${outcomeClass}">${outcomeLabel}</div>
       ${url
-        ? `<img src="${url}">`
+        ? `<img src="${url}"><button onclick="event.stopPropagation();deleteCardFrame('${c.id}')" style="position:absolute;top:4px;right:4px;background:rgba(0,0,0,0.7);border:none;color:#ef4444;font-size:0.85rem;cursor:pointer;border-radius:50%;width:20px;height:20px;display:flex;align-items:center;justify-content:center;padding:0;line-height:1">×</button>`
         : `<div class="upload-hint">📤</div>`
       }
       <input type="file" id="file-card-${c.id}" accept="image/*" onchange="uploadCardFrame('${c.id}', this)" style="display:none">
@@ -271,6 +271,16 @@ async function uploadGlobalFrame(frame, input) {
   zone.onclick = () => triggerUpload('first-global');
 }
 
+async function deleteCardFrame(cardId) {
+  await fetch(`${API}/api/video/settings`, {
+    method:'PATCH', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({last_frames: {[cardId]: null}})
+  });
+  settings.last_frames = settings.last_frames || {};
+  delete settings.last_frames[cardId];
+  renderSettingsPanel();
+}
+
 async function uploadCardFrame(cardId, input) {
   if (!input.files[0]) return;
   const slot = document.getElementById(`slot-${cardId}`);
@@ -284,7 +294,7 @@ async function uploadCardFrame(cardId, input) {
     body: JSON.stringify({last_frames: {[cardId]: data.url}})
   });
   settings.last_frames = settings.last_frames || {};
-  settings.last_frames[cardId] = data.url;
+  settings.last_frames[cardId] = data.url + '?t=' + Date.now();
   renderSettingsPanel();
 }
 
@@ -440,16 +450,16 @@ function renderOutput(agentId, result) {
   if (agentId === 'question') {
     const card = result.card || {};
     const outcome = result.outcome || 'neutral';
-    const outcomeLabel = {positive:'✅ Favorable', neutral:'🟡 Mixed Energy', negative:'❌ Challenging'}[outcome];
+    const outcomeLabel = {positive:'✅ Favorable', neutral:'🟡 Énergie Mixte', negative:'❌ Difficile'}[outcome];
     return `
       <div class="result-card">
         <div class="result-label">Question</div>
-        <div style="font-size:0.9rem;color:#fbbf24;font-weight:600">${esc(result.question||'')}</div>
+        <div style="font-size:0.9rem;color:#fbbf24;font-weight:600">${esc(result.question_fr||result.question||'')}</div>
       </div>
       <div class="result-card">
         <div class="result-label">Résultat</div>
         <span class="outcome-box outcome-${outcome}">${outcomeLabel}</span>
-        <div style="font-size:0.85rem;font-weight:600;color:#e0e0f0;margin-bottom:6px">${esc(card.name||'')} — ${esc(card.name_fr||'')}</div>
+        <div style="font-size:0.85rem;font-weight:600;color:#e0e0f0;margin-bottom:6px">${esc(card.name_fr||card.name||'')}</div>
         <div style="font-size:0.8rem;color:#9090b0">${esc(result.reading||'')}</div>
       </div>
       <div class="result-card">
@@ -467,7 +477,9 @@ function renderOutput(agentId, result) {
   if (agentId === 'overlay') {
     return `<div class="result-card">
       <div class="result-label">Frame intro</div>
-      <img class="img-preview" src="${result.intro_url||''}">
+      ${(result.intro_url||'').endsWith('.mp4')
+        ? `<video class="img-preview" src="${result.intro_url}" autoplay loop muted playsinline style="width:100%;border-radius:8px;margin-top:8px"></video>`
+        : `<img class="img-preview" src="${result.intro_url||''}">`}
     </div>
     <div class="result-card">
       <div class="result-label">Frame révélation</div>
@@ -497,17 +509,10 @@ function renderOutput(agentId, result) {
         <div style="font-size:1rem;font-weight:700;color:${statusColor};margin-bottom:6px">${statusIcon} ${esc(pub.message||pub.status||'')}</div>
         ${pub.publish_id ? `<div style="font-size:0.72rem;color:#5a5a80;margin-bottom:16px">Publish ID: ${esc(pub.publish_id)}</div>` : ''}
       </div>
-      <div class="result-card">
-        <div class="result-label">Titre</div>
-        <div style="font-size:0.9rem;font-weight:600;color:#fbbf24">${esc(result.title||'')}</div>
-      </div>
-      <div class="result-card">
-        <div class="result-label">Description</div>
-        <div style="font-size:0.82rem;color:#c0c0e0;line-height:1.5">${esc(result.description||'')}</div>
-      </div>
-      <div class="result-card">
-        <div class="result-label">Hashtags</div>
-        <div style="font-size:0.82rem;color:#a78bfa">${esc(result.hashtags||'')}</div>
+      <div class="result-card" style="position:relative">
+        <div class="result-label">Texte complet <span style="color:#4a4a70;font-size:0.6rem">(titre visible → ...plus → description + hashtags)</span></div>
+        <pre id="full-text-copy" style="font-size:0.82rem;color:#c0c0e0;line-height:1.6;white-space:pre-wrap;font-family:inherit;margin:0">${esc(result.full_text||result.title+'\n\n'+(result.description||'')+'\n\n'+(result.hashtags||''))}</pre>
+        <button onclick="copyFullText()" style="margin-top:10px;width:100%;padding:8px;background:#1e1e38;border:1px solid #a78bfa;color:#a78bfa;border-radius:7px;font-size:0.78rem;font-weight:600;cursor:pointer" id="copy-btn">📋 Copier tout</button>
       </div>
       ${result.audio_suggestion ? `<div class="result-card" style="background:#1a0a2e;border-color:#7c3aed">
         <div class="result-label" style="color:#c084fc">🎵 Audio suggéré</div>
@@ -516,6 +521,18 @@ function renderOutput(agentId, result) {
       </div>` : ''}`;
   }
   return '';
+}
+
+function copyFullText() {
+  const el = document.getElementById('full-text-copy');
+  if (!el) return;
+  navigator.clipboard.writeText(el.innerText).then(() => {
+    const btn = document.getElementById('copy-btn');
+    btn.textContent = '✓ Copié !';
+    btn.style.color = '#10b981';
+    btn.style.borderColor = '#10b981';
+    setTimeout(() => { btn.textContent = '📋 Copier tout'; btn.style.color = '#a78bfa'; btn.style.borderColor = '#a78bfa'; }, 2000);
+  });
 }
 
 async function runAgent(agentId) {

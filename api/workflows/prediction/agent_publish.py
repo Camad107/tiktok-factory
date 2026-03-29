@@ -6,23 +6,23 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-PROMPT = """You are a TikTok marketing expert for an oracle/tarot account targeting English-speaking audiences.
+PROMPT = """Tu es un expert marketing TikTok pour un compte oracle/voyance ciblant une audience francophone.
 
-Today's oracle content:
-Hook: {hook}
-Symbols: {symbols}
-CTA: {cta}
-Theme: {theme}
+Contenu oracle du jour :
+Hook : {hook}
+Symboles : {symbols}
+CTA : {cta}
+Thème : {theme}
 
-Generate two distinct texts for TikTok. Strict JSON format:
+Génère le texte du post TikTok. TOUT doit être en français. Format JSON strict :
 {{
-  "title": "short punchy title (max 60 chars, no emoji, different from the hook)",
-  "description": "engaging description of 3-5 sentences in English. Speak directly to the viewer. Mention the theme '{theme}' and invite them to pick a card. Create intrigue. End with the CTA. No hashtags here.",
-  "hashtags": "#pickacard #tarot #tarotreading #spiritualtiktok #tarottok",
-  "full_text": "description + two line breaks + hashtags (assembled, ready to post)"
+  "title": "hook accrocheur qui invite à choisir une carte, style : 'Choisis une carte' ou 'L'une d'elle te connaît' ou 'Laquelle te parle ?' — max 60 caractères, sans emoji",
+  "description": "une seule phrase d'engagement qui invite à liker pour que ça se réalise, sans emoji, sans hashtags — ex: 'Like si tu veux que ça se réalise pour toi 🤍'",
+  "hashtags": "#choisistacarte #tarot #voyance #spiritualite #oracle",
+  "full_text": "description + \\n\\n + hashtags"
 }}
 
-Reply ONLY with the JSON."""
+Réponds UNIQUEMENT avec le JSON."""
 
 
 def run(params: dict) -> dict:

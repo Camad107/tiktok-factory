@@ -1,6 +1,7 @@
 """TikTok OAuth 2.0 — gestion tokens"""
 import json
 import os
+import time
 import httpx
 from pathlib import Path
 
@@ -39,6 +40,8 @@ def exchange_code(code: str) -> dict:
         )
         r.raise_for_status()
         data = r.json()
+        if data.get("error"):
+            raise RuntimeError(f"TikTok OAuth error: {data.get('error_description', data.get('error'))}")
         save_token(data)
         return data
 
@@ -62,6 +65,7 @@ def refresh_access_token(refresh_token: str) -> dict:
 
 
 def save_token(data: dict):
+    data["_saved_at"] = int(time.time())
     TOKEN_FILE.write_text(json.dumps(data, indent=2))
 
 
@@ -72,16 +76,23 @@ def load_token() -> dict | None:
 
 
 def get_valid_token() -> str | None:
-    """Retourne un access_token valide, rafraîchit si nécessaire."""
+    """Retourne un access_token valide, rafraîchit automatiquement si expiré."""
     token = load_token()
     if not token:
         return None
-    # Tente un refresh pour s'assurer que le token est frais
-    refresh = token.get("refresh_token")
-    if not refresh:
-        return token.get("access_token")
-    try:
-        new_token = refresh_access_token(refresh)
-        return new_token.get("access_token")
-    except Exception:
-        return token.get("access_token")
+
+    saved_at = token.get("_saved_at", 0)
+    expires_in = token.get("expires_in", 86400)
+    age = int(time.time()) - saved_at
+
+    # Rafraîchit si le token a plus de 23h (marge de sécurité 1h)
+    if age > (expires_in - 3600):
+        refresh_token = token.get("refresh_token")
+        if not refresh_token:
+            return None
+        try:
+            token = refresh_access_token(refresh_token)
+        except Exception:
+            return None
+
+    return token.get("access_token") or None

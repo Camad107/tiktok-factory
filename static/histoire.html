@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Histoire du Jour</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Segoe UI', sans-serif; background: #0a0a18; color: #e0e0f0; height: 100vh; display: flex; flex-direction: column; }
+
+header { background: #12112a; border-bottom: 1px solid #1a1e3a; padding: 12px 20px; display: flex; align-items: center; gap: 16px; flex-shrink: 0; }
+header h1 { font-size: 1.1rem; background: linear-gradient(90deg,#e55,#f90,#ff0); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+.hdr-status { font-size: 0.72rem; color: #6b7280; }
+.hdr-status.ok { color: #10b981; }
+.btn-new { padding: 7px 14px; background: linear-gradient(135deg,#c0392b,#e74c3c); color: #fff; border: none; border-radius: 7px; font-size: 0.82rem; font-weight: 600; cursor: pointer; }
+.btn-new:hover { filter: brightness(1.15); }
+.job-item { padding:10px 14px; cursor:pointer; border-bottom:1px solid #1e1e3a; font-size:0.78rem; }
+.job-item:hover { background:#1a1a35; }
+.job-item.active { background:#0a1e16; color:#10b981; }
+
+.layout { display: flex; flex: 1; overflow: hidden; }
+.main-wrap { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+.pipeline-strip { display: flex; align-items: stretch; padding: 14px 20px; gap: 0; border-bottom: 1px solid #1e1e3a; background: #0f0f22; flex-shrink: 0; overflow-x: auto; }
+.node { width: 170px; background: #16162e; border: 2px solid #2a2a4a; border-radius: 10px; flex-shrink: 0; cursor: pointer; transition: all 0.2s; overflow: hidden; }
+.node:hover { border-color: #5a1a1a; }
+.node.active { border-color: #e55; box-shadow: 0 0 0 3px rgba(221,85,85,0.15); }
+.node.s-running { border-color: #f59e0b; box-shadow: 0 0 16px rgba(245,158,11,0.2); }
+.node.s-done { border-color: #10b981; }
+.node.s-error { border-color: #ef4444; }
+.node-head { padding: 9px 11px 7px; background: #1a1a38; display: flex; align-items: center; gap: 8px; }
+.node-icon { font-size: 1.2rem; }
+.node-title { font-size: 0.78rem; font-weight: 600; }
+.node-sub { font-size: 0.62rem; color: #7070a0; margin-top: 1px; }
+.node-body { padding: 8px 11px; }
+.badge { display: inline-flex; align-items: center; gap: 5px; font-size: 0.68rem; padding: 2px 7px; border-radius: 20px; font-weight: 500; }
+.b-pending { background:#1e1e38; color:#6b7280; }
+.b-running { background:#2d1f00; color:#f59e0b; }
+.b-done { background:#063020; color:#10b981; }
+.b-error { background:#2d0a0a; color:#ef4444; }
+.arrow { width: 28px; display: flex; align-items: center; justify-content: center; color: #2a2a5a; font-size: 1.1rem; flex-shrink: 0; }
+.arrow.lit { color: #10b981; }
+
+.detail { flex: 1; overflow: hidden; }
+.detail-left { width: 100%; height: 100%; overflow-y: auto; padding: 20px; }
+
+.agent-header { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+.agent-title { font-size: 1.1rem; font-weight: 700; }
+.agent-desc { font-size: 0.78rem; color: #7070a0; margin-top: 2px; }
+.actions { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+.btn { padding: 8px 16px; border: none; border-radius: 8px; font-size: 0.82rem; font-weight: 600; cursor: pointer; }
+.btn-primary { background: linear-gradient(135deg,#c0392b,#e74c3c); color: #fff; }
+.btn-secondary { background: #1e1e38; color: #c0c0e0; border: 1px solid #2a2a4a; }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.error-box { background: #1a0000; border: 1px solid #ef4444; border-radius: 8px; padding: 12px; font-size: 0.78rem; color: #ef4444; white-space: pre-wrap; max-height: 200px; overflow-y: auto; }
+
+.spin { display: inline-block; animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.result-card { background: #0d0d20; border: 1px solid #2a2a4a; border-radius: 10px; padding: 14px; margin-bottom: 12px; }
+.result-label { font-size: 0.65rem; color: #e55; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
+
+.event-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; }
+.event-item { background: #1a0a0a; border: 1px solid #3a1a1a; border-radius: 8px; padding: 10px; }
+.event-item-label { font-size: 0.62rem; color: #e55; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
+.event-item-value { font-size: 0.8rem; color: #f0c8c8; line-height: 1.5; }
+
+.score-bar { height: 6px; background: #2a1a1a; border-radius: 3px; margin-top: 6px; }
+.score-fill { height: 100%; border-radius: 3px; background: linear-gradient(90deg,#c0392b,#e74c3c); }
+
+.events-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+.event-row { background: #1a0a0a; border: 1px solid #2a1a1a; border-radius: 8px; padding: 10px 14px; cursor: pointer; transition: border-color 0.2s; }
+.event-row:hover { border-color: #e55; }
+.event-row-title { font-size: 0.85rem; font-weight: 600; color: #f0c8c8; }
+.event-row-meta { font-size: 0.72rem; color: #7070a0; margin-top: 3px; }
+.event-row-score { font-size: 0.72rem; color: #e55; font-weight: 700; margin-top: 3px; }
+
+.video-result { text-align: center; }
+.video-result video { width: 100%; max-width: 220px; border-radius: 0; border: 2px solid #e55; }
+.btn-dl { display: inline-block; margin-top: 10px; padding: 8px 20px; background: #e55; color: #fff; border-radius: 8px; font-size: 0.82rem; font-weight: 600; text-decoration: none; }
+.img-preview { width: 100%; max-width: 220px; border-radius: 8px; margin-top: 8px; border: 1px solid #3a1a1a; display: block; margin-left: auto; margin-right: auto; }
+
+.facts-list { list-style: none; padding: 0; }
+.facts-list li { padding: 6px 0; border-bottom: 1px solid #1a1a3a; font-size: 0.82rem; color: #d0c0c0; }
+.facts-list li:last-child { border-bottom: none; }
+.facts-list li::before { content: "▸ "; color: #e55; }
+
+.tiktok-box { background: #1a0a0a; border: 1px solid #3a1a1a; border-radius: 8px; padding: 12px; margin-bottom: 10px; }
+.tiktok-hook { font-size: 1.1rem; font-weight: 700; color: #ff6666; margin-bottom: 6px; }
+.tiktok-body { font-size: 0.82rem; color: #d0c0c0; line-height: 1.6; margin-bottom: 6px; }
+.tiktok-punchline { font-size: 0.85rem; font-style: italic; color: #f0a0a0; }
+</style>
+</head>
+<body>
+
+<header>
+  <a href="/" style="font-size:0.75rem;color:#5a5a80;text-decoration:none;border:1px solid #2a2a4a;padding:4px 10px;border-radius:6px">← Workflows</a>
+  <h1>📅 Histoire du Jour</h1>
+  <button class="btn-new" onclick="newJob()" style="margin-left:auto">＋ Nouvelle session</button>
+  <div id="sessions-btn" style="position:relative;margin-left:8px">
+    <button onclick="toggleSessionsList()" style="background:#1e1e38;border:1px solid #2a2a4a;color:#c0c0e0;padding:7px 14px;border-radius:7px;font-size:0.82rem;cursor:pointer">Sessions ▾</button>
+    <div id="sessions-dropdown" style="display:none;position:absolute;top:110%;right:0;background:#12112a;border:1px solid #2a2a4a;border-radius:8px;min-width:220px;z-index:100;max-height:300px;overflow-y:auto"><div id="jobs-list"></div></div>
+  </div>
+  <span id="hdr-status" class="hdr-status" style="margin-left:8px">API...</span>
+</header>
+
+<div class="layout">
+  <div class="main-wrap">
+
+    <div class="pipeline-strip" id="pipeline-strip">
+      <div style="color:#4a4a70;font-size:0.82rem;display:flex;align-items:center">Crée ou sélectionne une session</div>
+    </div>
+
+    <div class="detail">
+      <div class="detail-left" id="detail-left">
+        <div style="color:#4a4a70;font-size:0.85rem;margin-top:40px;text-align:center">Sélectionne un agent dans le pipeline</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+const API = location.hostname.includes('factorytiktok') ? '' : 'http://localhost:8401';
+
+const AGENTS = [
+  { id:'topic',    icon:'📅', title:'Topic',      sub:'Événement du jour',      desc:'Trouve les 5 événements historiques les plus viraux pour la date du jour et sélectionne le meilleur.' },
+  { id:'research', icon:'🔍', title:'Recherche',  sub:'Fact-check + comm',      desc:'Fact-check l\'événement, script TikTok, et données de communication : date, titre, stat, élément visuel clé, ambiance.' },
+  { id:'prompt',   icon:'🎨', title:'Prompt',     sub:'Runway + overlays',      desc:'Génère le prompt Runway cinématique à partir de l\'élément visuel clé, et assemble les overlays + description TikTok.' },
+  { id:'visual',   icon:'🎬', title:'Visuel',     sub:'Runway Gen-4 720p',      desc:'Génère la vidéo loop 5 secondes via Runway (kie.ai).' },
+  { id:'montage',  icon:'✂️', title:'Montage',    sub:'FFmpeg overlay',         desc:'Ajoute la date, le titre et la stat en overlay typographique sur la vidéo.' },
+  { id:'publish',  icon:'📤', title:'Publication',sub:'TikTok inbox',           desc:'Envoie la vidéo dans ton inbox TikTok avec la description et les hashtags optimisés.' },
+];
+
+let currentJobId = null;
+let currentAgent = null;
+let pollTimer = null;
+
+function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function toggleSessionsList() {
+  const d = document.getElementById('sessions-dropdown');
+  d.style.display = d.style.display === 'none' ? 'block' : 'none';
+}
+document.addEventListener('click', e => {
+  const btn = document.getElementById('sessions-btn');
+  if (btn && !btn.contains(e.target)) {
+    const d = document.getElementById('sessions-dropdown');
+    if (d) d.style.display = 'none';
+  }
+});
+
+async function loadJobs() {
+  const r = await fetch(`${API}/api/histoire/jobs`);
+  const data = await r.json();
+  const list = document.getElementById('jobs-list');
+  if (!data.jobs?.length) {
+    list.innerHTML = '<div style="padding:16px;text-align:center;color:#3a3a60;font-size:0.75rem">Aucune session</div>';
+    return;
+  }
+  list.innerHTML = data.jobs.map(j => {
+    const dot = {idle:'⬜',running:'🟡',done:'🟢',error:'🔴'}[j.status]||'⬜';
+    const d = new Date(j.created_at);
+    const label = d.toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit'}) + ' ' + d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
+    return `<div class="job-item ${j.id===currentJobId?'active':''}" onclick="selectJob('${j.id}')">
+      <div>${dot} ${j.id.replace('hist_','')}</div>
+      <div style="font-size:0.65rem;color:#4a4a70;margin-top:2px">${label}</div>
+    </div>`;
+  }).join('');
+}
+
+async function newJob() {
+  const r = await fetch(`${API}/api/histoire/jobs`, {method:'POST'});
+  const data = await r.json();
+  document.getElementById('sessions-dropdown').style.display = 'none';
+  await loadJobs();
+  await selectJob(data.job_id);
+}
+
+async function selectJob(jobId) {
+  currentJobId = jobId;
+  currentAgent = 'topic';
+  if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+  document.getElementById('sessions-dropdown').style.display = 'none';
+  await loadJobs();
+  const r = await fetch(`${API}/api/histoire/jobs/${jobId}`);
+  const job = await r.json();
+  renderPipeline(job);
+  renderDetail('topic', job);
+}
+
+function renderPipeline(job) {
+  const strip = document.getElementById('pipeline-strip');
+  strip.innerHTML = AGENTS.map((ag, i) => {
+    const st = job.agents?.[ag.id]?.status || 'pending';
+    const isActive = ag.id === currentAgent;
+    const prev = i > 0 ? (job.agents?.[AGENTS[i-1].id]?.status || 'pending') : 'done';
+    return `
+      ${i > 0 ? `<div class="arrow ${prev==='done'?'lit':''}">›</div>` : ''}
+      <div class="node ${isActive?'active':''} s-${st}" onclick="selectAgent('${ag.id}')">
+        <div class="node-head">
+          <span class="node-icon">${ag.icon}</span>
+          <div><div class="node-title">${ag.title}</div><div class="node-sub">${ag.sub}</div></div>
+        </div>
+        <div class="node-body">
+          <span class="badge b-${st}">${badgeLabel(st)}</span>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function badgeLabel(st) {
+  return {pending:'⏳ En attente', running:'⚡ En cours', done:'✓ Fait', error:'✗ Erreur'}[st] || st;
+}
+
+function selectAgent(agentId) {
+  currentAgent = agentId;
+  if (!currentJobId) return;
+  fetch(`${API}/api/histoire/jobs/${currentJobId}`).then(r=>r.json()).then(job => {
+    renderPipeline(job);
+    renderDetail(agentId, job);
+  });
+}
+
+function renderDetail(agentId, job) {
+  const ag = AGENTS.find(a => a.id === agentId);
+  const state = job.agents?.[agentId] || {};
+  const st = state.status || 'pending';
+  const isRunning = st === 'running';
+  const left = document.getElementById('detail-left');
+
+  let actionsHtml = `<div class="actions">
+    <button class="btn btn-primary" onclick="runAgent('${agentId}')" ${isRunning?'disabled':''}>
+      ${isRunning?'<span class="spin">⟳</span> En cours...':'▶ Lancer'}
+    </button>`;
+  if (agentId === 'topic') {
+    actionsHtml += `<button class="btn btn-secondary" onclick="runAll()" ${isRunning?'disabled':''}>▶▶ Tout lancer</button>`;
+  }
+  if (st === 'done' || st === 'error') {
+    actionsHtml += `<button class="btn btn-secondary" onclick="runAgent('${agentId}')">↻ Relancer</button>`;
+  }
+  actionsHtml += `</div>`;
+
+  let outputHtml = '';
+  if (st === 'error' && state.error) {
+    outputHtml = `<div class="error-box">${esc(state.error)}</div>`;
+  } else if (st === 'done' && state.result) {
+    outputHtml = renderOutput(agentId, state.result);
+  }
+
+  left.innerHTML = `
+    <div class="agent-header">
+      <span style="font-size:2rem">${ag.icon}</span>
+      <div><div class="agent-title">${ag.title}</div><div class="agent-desc">${ag.desc}</div></div>
+      <span class="badge b-${st}" style="margin-left:auto">${badgeLabel(st)}</span>
+    </div>
+    ${actionsHtml}
+    ${outputHtml || `<div style="color:#4a4a70;font-size:0.85rem">${st==='pending'?'Lance cet agent pour voir les résultats.':''}</div>`}
+  `;
+
+  if (st === 'running' && !pollTimer) {
+    pollTimer = setInterval(async () => {
+      const r = await fetch(`${API}/api/histoire/jobs/${currentJobId}`);
+      const j = await r.json();
+      renderPipeline(j);
+      if (currentAgent) renderDetail(currentAgent, j);
+      await loadJobs();
+      if (j.status !== 'running') { clearInterval(pollTimer); pollTimer = null; }
+    }, 3000);
+  }
+}
+
+function renderOutput(agentId, result) {
+  if (agentId === 'topic') {
+    const events = result.events || [];
+    const selected = result.selected_event || {};
+    return `
+      <div class="result-card">
+        <div class="result-label">📅 Date analysée : ${esc(result.date_display||'')}</div>
+        <div class="events-list">
+          ${events.map(e => `
+            <div class="event-row">
+              <div class="event-row-title">${esc(e.title||'')}</div>
+              <div style="font-size:0.72rem;color:#c08060;font-weight:600;margin-top:2px">📅 ${esc(e.exact_date||String(e.year||''))}</div>
+              <div class="event-row-meta">${esc(e.hook||'')}</div>
+              <div style="display:flex;align-items:center;gap:10px;margin-top:5px">
+                <span style="font-size:0.72rem;color:#e55;font-weight:700">🔥 ${e.viral_score}/100</span>
+                <span style="font-size:0.68rem;color:#7070a0">${esc(e.category||'')}</span>
+              </div>
+              <div class="score-bar" style="margin-top:4px"><div class="score-fill" style="width:${e.viral_score||0}%"></div></div>
+            </div>
+          `).join('')}
+        </div>
+        <div style="margin-top:10px;padding:10px;background:#2a0a0a;border-radius:8px;font-size:0.82rem">
+          <span style="color:#e55;font-weight:700">✓ Sélectionné :</span> ${esc(selected.title||'')} — ${esc(selected.exact_date||String(selected.year||''))}
+        </div>
+      </div>`;
+  }
+
+  if (agentId === 'research') {
+    return `
+      <div class="result-card">
+        <div class="result-label">${esc(result.verified_title||'Événement vérifié')} — ${result.year||''}</div>
+        <ul class="facts-list">
+          ${(result.facts||[]).map(f => `<li>${esc(f)}</li>`).join('')}
+        </ul>
+      </div>
+      <div class="result-card">
+        <div class="result-label">Script TikTok</div>
+        <div class="tiktok-box">
+          <div class="tiktok-hook">🎣 ${esc(result.tiktok_hook||'')}</div>
+          <div class="tiktok-body">${esc(result.tiktok_body||'')}</div>
+          <div class="tiktok-punchline">💬 ${esc(result.tiktok_punchline||'')}</div>
+        </div>
+      </div>
+      <div class="result-card">
+        <div class="result-label">Données de communication</div>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <div style="display:flex;gap:10px"><span style="font-size:0.62rem;color:#e55;min-width:80px;padding-top:2px">ÉVÉNEMENT</span><span style="font-size:0.85rem;color:#f0c8c8;font-weight:600">${esc(result.verified_title||'')}</span></div>
+          <div style="display:flex;gap:10px"><span style="font-size:0.62rem;color:#e55;min-width:80px;padding-top:2px">DATE</span><span style="font-size:0.85rem;color:#fff;font-weight:600">${esc(result.comm_date||'')}</span></div>
+          <div style="display:flex;gap:10px"><span style="font-size:0.62rem;color:#e55;min-width:80px;padding-top:2px">TITRE</span><span style="font-size:0.85rem;color:#fff;font-weight:600">${esc(result.comm_title||'')}</span></div>
+          <div style="display:flex;gap:10px"><span style="font-size:0.62rem;color:#e55;min-width:80px;padding-top:2px">STAT</span><span style="font-size:0.85rem;color:#FFD700;font-weight:600">${esc(result.comm_stat||'')}</span></div>
+          <div style="display:flex;gap:10px"><span style="font-size:0.62rem;color:#e55;min-width:80px;padding-top:2px">VISUEL CLÉ</span><span style="font-size:0.82rem;color:#d0c0c0;line-height:1.5">${esc(result.comm_visual_key||'')}</span></div>
+          <div style="display:flex;gap:10px"><span style="font-size:0.62rem;color:#e55;min-width:80px;padding-top:2px">AMBIANCE</span><span style="font-size:0.82rem;color:#c0d0e0;font-style:italic">${esc(result.comm_visual_mood||'')}</span></div>
+        </div>
+      </div>
+      <div class="result-card">
+        <div class="result-label">Description TikTok</div>
+        <div style="font-size:0.82rem;color:#d0c0c0;line-height:1.6;white-space:pre-line">${esc(result.description_tiktok||'')}</div>
+        <div style="margin-top:8px;font-size:0.75rem;color:#7070a0">${esc(result.hashtags||'')}</div>
+      </div>`;
+  }
+
+  if (agentId === 'prompt') {
+    return `
+      <div class="result-card">
+        <div class="result-label">🎬 Prompt Runway</div>
+        <div style="font-size:0.82rem;color:#c8e0ff;line-height:1.7;font-family:monospace;background:#0a0a1a;padding:10px;border-radius:6px">${esc(result.runway_prompt||'')}</div>
+        ${result.visual_rationale ? `<div style="margin-top:8px;font-size:0.72rem;color:#7070a0;font-style:italic">💡 ${esc(result.visual_rationale)}</div>` : ''}
+      </div>`;
+  }
+
+  if (agentId === 'visual') {
+    return `
+      <div class="result-card">
+        <div class="result-label">🎬 Prompt utilisé</div>
+        <div style="font-size:0.78rem;color:#c8e0ff;font-family:monospace;background:#0a0a1a;padding:10px;border-radius:6px;line-height:1.6">${esc(result.runway_prompt_used||'')}</div>
+      </div>
+      <div class="result-card">
+        <div class="result-label">Vidéo Runway brute (avant montage)</div>
+        <div class="video-result">
+          <video src="${esc(result.video_url||'')}" controls loop autoplay muted playsinline></video>
+          <br><a class="btn-dl" href="${esc(result.video_url||'')}" download>⬇ Télécharger brut</a>
+        </div>
+      </div>`;
+  }
+
+  if (agentId === 'montage') {
+    return `
+      <div class="result-card">
+        <div class="result-label">Vidéo finale avec overlays</div>
+        <div class="video-result">
+          <video src="${esc(result.final_url||'')}" controls loop autoplay muted playsinline></video>
+          <br><a class="btn-dl" href="${esc(result.final_url||'')}" download>⬇ Télécharger final</a>
+        </div>
+      </div>`;
+  }
+
+  if (agentId === 'publish') {
+    const pub = result.publish || {};
+    const statusColor = pub.status === 'sent_to_inbox' ? '#10b981' : pub.status === 'no_token' ? '#f59e0b' : '#ef4444';
+    return `
+      <div class="result-card">
+        <div class="result-label">Publication TikTok</div>
+        <div style="color:${statusColor};font-size:0.9rem;font-weight:600;margin-bottom:10px">${esc(pub.message||pub.status||'')}</div>
+        ${pub.publish_id ? `<div style="font-size:0.75rem;color:#7070a0">Publish ID: ${esc(pub.publish_id)}</div>` : ''}
+        <div style="margin-top:10px;font-size:0.8rem;color:#9090b0">
+          <div>${esc(result.description||'')}</div>
+        </div>
+      </div>`;
+  }
+
+  return `<pre style="font-size:0.72rem;color:#7070a0;white-space:pre-wrap">${esc(JSON.stringify(result,null,2))}</pre>`;
+}
+
+async function runAgent(agentId) {
+  if (!currentJobId) return;
+  await fetch(`${API}/api/histoire/jobs/${currentJobId}/run/${agentId}`, {method:'POST'});
+  const r = await fetch(`${API}/api/histoire/jobs/${currentJobId}`);
+  const job = await r.json();
+  renderPipeline(job);
+  renderDetail(agentId, job);
+}
+
+async function runAll() {
+  if (!currentJobId) return;
+  // Lance topic puis chaîne via polling
+  await runAgent('topic');
+  const order = ['topic','research','visual','montage','publish'];
+  let idx = 0;
+  const advance = setInterval(async () => {
+    const r = await fetch(`${API}/api/histoire/jobs/${currentJobId}`);
+    const job = await r.json();
+    renderPipeline(job);
+    if (currentAgent) renderDetail(currentAgent, job);
+    await loadJobs();
+    const cur = order[idx];
+    if (job.agents?.[cur]?.status === 'done') {
+      idx++;
+      if (idx < order.length) {
+        await runAgent(order[idx]);
+      } else {
+        clearInterval(advance);
+      }
+    } else if (job.agents?.[cur]?.status === 'error') {
+      clearInterval(advance);
+    }
+  }, 4000);
+}
+
+// Init
+(async () => {
+  try {
+    const r = await fetch(`${API}/api/ping`);
+    const d = await r.json();
+    const el = document.getElementById('hdr-status');
+    el.textContent = d.fal_configured ? '● API OK' : '⚠ FAL non configuré';
+    el.className = 'hdr-status' + (d.fal_configured ? ' ok' : '');
+  } catch(e) {
+    document.getElementById('hdr-status').textContent = '✗ API hors ligne';
+  }
+  await loadJobs();
+})();
+</script>
+</body>
+</html>

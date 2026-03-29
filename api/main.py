@@ -21,6 +21,7 @@ app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 app.mount("/output", StaticFiles(directory=str(OUTPUT_DIR)), name="output")
 
 FAL_KEY = os.environ.get("FAL_KEY", "")
+KIE_KEY = os.environ.get("KIE_KEY", "")
 AGENT_ORDER = ["content", "image_prompts", "images", "voice", "video"]
 PRED_AGENT_ORDER = ["content", "image_prompts", "images", "publish"]
 
@@ -64,8 +65,26 @@ PRED_JOBS: dict[str, dict] = _load_store(PRED_JOBS_FILE)
 PENDULE_JOBS: dict[str, dict] = _load_store(PENDULE_JOBS_FILE)
 PENDULE_AGENT_ORDER = ["image", "video"]
 VIDEO_JOBS: dict[str, dict] = _load_store(VIDEO_JOBS_FILE)
-for _store in [JOBS, PRED_JOBS, PENDULE_JOBS, VIDEO_JOBS]:
+RET_AGENT_ORDER = ["content", "prompts", "flux", "voice", "video", "publish"]
+RET_JOBS_FILE = DATA_DIR / "retournement_jobs.json"
+
+HIST_AGENT_ORDER = ["topic", "research", "prompt", "visual", "montage", "publish"]
+HIST_JOBS_FILE = DATA_DIR / "histoire_jobs.json"
+HIST_JOBS: dict[str, dict] = _load_store(HIST_JOBS_FILE)
+_reset_running_jobs(HIST_JOBS)
+
+HIST2_AGENT_ORDER = ["topic", "research", "prompt", "visual", "montage"]
+HIST2_JOBS_FILE = DATA_DIR / "histoire2_jobs.json"
+HIST2_JOBS: dict[str, dict] = _load_store(HIST2_JOBS_FILE)
+_reset_running_jobs(HIST2_JOBS)
+RET_SETTINGS_FILE = DATA_DIR / "retournement_settings.json"
+RET_SOURCES_DIR = Path(__file__).parent.parent / "output" / "retournement_sources"
+RET_OUTPUT_DIR = Path(__file__).parent.parent / "output" / "retournement"
+RET_JOBS: dict[str, dict] = _load_store(RET_JOBS_FILE)
+for _store in [JOBS, PRED_JOBS, PENDULE_JOBS, VIDEO_JOBS, RET_JOBS]:
     _reset_running_jobs(_store)
+RET_SOURCES_DIR.mkdir(parents=True, exist_ok=True)
+RET_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 VIDEO_UPLOAD_DIR = Path(__file__).parent.parent / "output" / "video_refs"
 VIDEO_UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -143,6 +162,12 @@ def index(wf: str = None):
         return FileResponse(str(STATIC_DIR / "video.html"), headers=headers)
     if wf == "satisfying":
         return FileResponse(str(STATIC_DIR / "satisfying.html"), headers=headers)
+    if wf == "retournement":
+        return FileResponse(str(STATIC_DIR / "retournement.html"), headers=headers)
+    if wf == "histoire":
+        return FileResponse(str(STATIC_DIR / "histoire.html"), headers=headers)
+    if wf == "histoire2":
+        return FileResponse(str(STATIC_DIR / "histoire2.html"), headers=headers)
     if wf:
         return FileResponse(str(STATIC_DIR / "index.html"), headers=headers)
     return FileResponse(str(STATIC_DIR / "home.html"), headers=headers)
@@ -203,11 +228,15 @@ def pred_create_job():
 
 @app.get("/api/pred/jobs")
 def pred_list_jobs():
+    store = _load_store(PRED_JOBS_FILE)
+    PRED_JOBS.update(store)
     return {"jobs": sorted(PRED_JOBS.values(), key=lambda x: x["created_at"], reverse=True)}
 
 
 @app.get("/api/pred/jobs/{job_id}")
 def pred_get_job(job_id: str):
+    store = _load_store(PRED_JOBS_FILE)
+    PRED_JOBS.update(store)
     if job_id not in PRED_JOBS:
         raise HTTPException(404, "Job not found")
     return PRED_JOBS[job_id]
@@ -365,11 +394,13 @@ def video_create_job():
 
 @app.get("/api/video/jobs")
 def video_list_jobs():
+    VIDEO_JOBS.update(_load_store(VIDEO_JOBS_FILE))
     return {"jobs": sorted(VIDEO_JOBS.values(), key=lambda x: x["created_at"], reverse=True)}
 
 
 @app.get("/api/video/jobs/{job_id}")
 def video_get_job(job_id: str):
+    VIDEO_JOBS.update(_load_store(VIDEO_JOBS_FILE))
     if job_id not in VIDEO_JOBS:
         raise HTTPException(404, "Job not found")
     return VIDEO_JOBS[job_id]
@@ -521,6 +552,194 @@ def video_run_agent(job_id: str, agent_name: str, body: dict = Body(default={}))
         _save_store(VIDEO_JOBS_FILE, VIDEO_JOBS)
     threading.Thread(target=_video_agent_run, args=(job_id, agent_name), daemon=True).start()
     return {"ok": True, "agent": agent_name}
+
+
+# ─── Retournement workflow routes ────────────────────────────────────────────
+
+def _ret_run_agent_sync(job_id: str, agent_name: str, params: dict):
+    import sys
+    sys.path.insert(0, str(Path(__file__).parent))
+    from workflows.retournement import agent_content as ret_content
+    from workflows.retournement import agent_prompts as ret_prompts
+    from workflows.retournement import agent_flux as ret_flux
+    from workflows.retournement import agent_voice as ret_voice
+    from workflows.retournement import agent_video as ret_video
+    from workflows.retournement import agent_publish as ret_publish
+    RAGENTS = {
+        "content": ret_content, "prompts": ret_prompts, "flux": ret_flux,
+        "voice": ret_voice, "video": ret_video, "publish": ret_publish,
+    }
+    for a in RET_AGENT_ORDER:
+        if a not in RET_JOBS[job_id]["agents"]:
+            RET_JOBS[job_id]["agents"][a] = {"status": "pending", "result": None, "error": None, "updated_at": None}
+
+    RET_JOBS[job_id]["agents"][agent_name]["status"] = "running"
+    RET_JOBS[job_id]["agents"][agent_name]["updated_at"] = datetime.now().isoformat()
+    RET_JOBS[job_id]["status"] = "running"
+    RET_JOBS[job_id]["updated_at"] = datetime.now().isoformat()
+    _save_store(RET_JOBS_FILE, RET_JOBS)
+    try:
+        result = RAGENTS[agent_name].run(params)
+        RET_JOBS[job_id]["agents"][agent_name] = {"status": "done", "result": result, "error": None, "updated_at": datetime.now().isoformat()}
+        all_done = all(RET_JOBS[job_id]["agents"][a]["status"] == "done" for a in RET_AGENT_ORDER)
+        RET_JOBS[job_id]["status"] = "done" if all_done else "idle"
+    except Exception:
+        err = traceback.format_exc()
+        RET_JOBS[job_id]["agents"][agent_name] = {"status": "error", "result": None, "error": err, "updated_at": datetime.now().isoformat()}
+        RET_JOBS[job_id]["status"] = "error"
+    RET_JOBS[job_id]["updated_at"] = datetime.now().isoformat()
+    _save_store(RET_JOBS_FILE, RET_JOBS)
+
+
+@app.post("/api/retournement/jobs")
+def ret_create_job():
+    job_id = f"ret_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:6]}"
+    RET_JOBS[job_id] = {
+        "id": job_id, "status": "idle",
+        "created_at": datetime.now().isoformat(),
+        "updated_at": datetime.now().isoformat(),
+        "agents": {a: {"status": "pending", "result": None, "error": None, "updated_at": None} for a in RET_AGENT_ORDER},
+    }
+    _save_store(RET_JOBS_FILE, RET_JOBS)
+    return {"job_id": job_id}
+
+
+@app.get("/api/retournement/jobs")
+def ret_list_jobs():
+    RET_JOBS.update(_load_store(RET_JOBS_FILE))
+    return {"jobs": sorted(RET_JOBS.values(), key=lambda x: x["created_at"], reverse=True)}
+
+
+@app.get("/api/retournement/jobs/{job_id}")
+def ret_get_job(job_id: str):
+    RET_JOBS.update(_load_store(RET_JOBS_FILE))
+    if job_id not in RET_JOBS:
+        raise HTTPException(404, "Job not found")
+    return RET_JOBS[job_id]
+
+
+@app.post("/api/retournement/jobs/{job_id}/run/{agent_name}")
+def ret_run_agent(job_id: str, agent_name: str, body: dict = Body(default={})):
+    if job_id not in RET_JOBS:
+        raise HTTPException(404, "Job not found")
+    if agent_name not in RET_AGENT_ORDER:
+        raise HTTPException(400, f"Agent inconnu: {agent_name}")
+
+    settings = _load_store(RET_SETTINGS_FILE)
+    agents = RET_JOBS[job_id]["agents"]
+
+    params = {"job_id": job_id, **body}
+
+    if agent_name == "content":
+        params["job_id"] = job_id
+
+    elif agent_name == "prompts":
+        params["content"] = (agents.get("content") or {}).get("result") or {}
+
+    elif agent_name == "flux":
+        params["content"] = (agents.get("content") or {}).get("result") or {}
+        params["prompts"] = (agents.get("prompts") or {}).get("result") or {}
+        params["flux"] = (agents.get("flux") or {}).get("result") or {}
+        params["sources_dir"] = str(RET_SOURCES_DIR)
+        # step passé depuis le body (A/B/C/all), déjà dans params via body
+
+    elif agent_name == "voice":
+        params["content"] = (agents.get("content") or {}).get("result") or {}
+
+    elif agent_name == "video":
+        params["content"] = (agents.get("content") or {}).get("result") or {}
+        params["flux"] = (agents.get("flux") or {}).get("result") or {}
+        params["voice"] = (agents.get("voice") or {}).get("result") or {}
+
+    elif agent_name == "publish":
+        params["content"] = (agents.get("content") or {}).get("result") or {}
+        params["video"] = (agents.get("video") or {}).get("result") or {}
+
+    threading.Thread(target=_ret_run_agent_sync, args=(job_id, agent_name, params), daemon=True).start()
+    return {"ok": True, "agent": agent_name}
+
+
+@app.get("/api/retournement/settings")
+def ret_get_settings():
+    settings = _load_store(RET_SETTINGS_FILE)
+    return settings
+
+
+@app.post("/api/retournement/settings")
+def ret_save_settings(body: dict = Body(default={})):
+    settings = _load_store(RET_SETTINGS_FILE)
+    for key in ["sources_dir"]:
+        if key in body:
+            settings[key] = body[key]
+    _save_store(RET_SETTINGS_FILE, settings)
+    return settings
+
+
+ARCANES_FILE = DATA_DIR / "arcanes.json"
+
+
+@app.get("/api/retournement/arcanes")
+def ret_get_arcanes():
+    return json.loads(ARCANES_FILE.read_text())
+
+
+@app.post("/api/retournement/arcanes")
+def ret_save_arcanes(body: list = Body(default=[])):
+    ARCANES_FILE.write_text(json.dumps(body, ensure_ascii=False, indent=2))
+    return {"ok": True, "count": len(body)}
+
+
+@app.post("/api/retournement/upload")
+async def ret_upload_source(file: UploadFile = File(...)):
+    ext = Path(file.filename).suffix.lower() or ".jpg"
+    if ext not in (".jpg", ".jpeg", ".png"):
+        raise HTTPException(400, "Format non supporté — utilisez JPG ou PNG")
+
+    raw = await file.read()
+
+    # Compresser si > 1MB pour éviter le 413 de kie.ai
+    MAX_BYTES = 1 * 1024 * 1024
+    if len(raw) > MAX_BYTES:
+        from PIL import Image
+        import io
+        img = Image.open(io.BytesIO(raw)).convert("RGB")
+        w, h = img.size
+        if max(w, h) > 2048:
+            ratio = 2048 / max(w, h)
+            img = img.resize((int(w * ratio), int(h * ratio)), Image.LANCZOS)
+        quality = 90
+        while quality >= 40:
+            buf = io.BytesIO()
+            img.save(buf, format="JPEG", quality=quality, optimize=True)
+            raw = buf.getvalue()
+            if len(raw) <= MAX_BYTES:
+                break
+            quality -= 10
+        # Forcer extension .jpg après compression
+        stem = Path(file.filename).stem
+        filename = stem + ".jpg"
+    else:
+        filename = file.filename
+
+    dest = RET_SOURCES_DIR / filename
+    dest.write_bytes(raw)
+    public_url = f"https://factorytiktok.duckdns.org/output/retournement_sources/{filename}"
+    return {"filename": filename, "url": public_url, "path": str(dest)}
+
+
+@app.get("/api/retournement/sources")
+def ret_list_sources():
+    files = list(RET_SOURCES_DIR.glob("*.jpg")) + list(RET_SOURCES_DIR.glob("*.jpeg")) + list(RET_SOURCES_DIR.glob("*.png"))
+    return {"sources": [{"filename": f.name, "url": f"https://factorytiktok.duckdns.org/output/retournement_sources/{f.name}"} for f in sorted(files)]}
+
+
+@app.delete("/api/retournement/sources/{filename}")
+def ret_delete_source(filename: str):
+    dest = RET_SOURCES_DIR / filename
+    if not dest.exists() or not dest.is_file():
+        raise HTTPException(404, "Fichier non trouvé")
+    dest.unlink()
+    return {"ok": True, "deleted": filename}
 
 
 # ─── Legal pages ─────────────────────────────────────────────────────────────
@@ -882,3 +1101,309 @@ def tiktok_verify_file():
 @app.get("/tiktok8Wyxk9Nk49EIUDBoiN4Wtmjx80vAGsFH.txt")
 def tiktok_url_ownership():
     return HTMLResponse("tiktok-developers-site-verification=8Wyxk9Nk49EIUDBoiN4Wtmjx80vAGsFH")
+
+
+@app.get("/api/media")
+def list_media():
+    """Liste tous les fichiers médias générés (images + vidéos)."""
+    import os
+    from pathlib import Path
+    dirs = [
+        Path("/home/claude-user/tiktok-voyance/output/video_jobs"),
+        Path("/home/claude-user/tiktok-voyance/output/prediction_jobs"),
+        Path("/home/claude-user/tiktok-voyance/output"),
+    ]
+    files = []
+    for d in dirs:
+        if not d.exists():
+            continue
+        for f in sorted(d.iterdir(), key=lambda x: x.stat().st_mtime, reverse=True):
+            if f.suffix.lower() in (".mp4", ".jpg", ".jpeg", ".png", ".gif"):
+                stat = f.stat()
+                url = str(f).replace("/home/claude-user/tiktok-voyance", "")
+                files.append({
+                    "name": f.name,
+                    "url": url,
+                    "size_mb": round(stat.st_size / 1024 / 1024, 1),
+                    "type": "video" if f.suffix == ".mp4" else "image",
+                    "mtime": stat.st_mtime,
+                })
+    # Dédupliquer par nom
+    seen = set()
+    unique = []
+    for f in files:
+        if f["name"] not in seen:
+            seen.add(f["name"])
+            unique.append(f)
+    return {"files": unique[:100]}
+
+
+# ─── Histoire workflow routes ─────────────────────────────────────────────────
+
+def _hist_run_agent(job_id: str, agent_name: str):
+    os.environ["FAL_KEY"] = FAL_KEY
+    os.environ["KIE_KEY"] = KIE_KEY
+    import sys
+    sys.path.insert(0, str(Path(__file__).parent))
+    from workflows.histoire import agent_topic, agent_research, agent_prompt as hist_prompt, agent_visual, agent_montage, agent_publish as hist_publish
+    HAGENTS = {
+        "topic":    agent_topic,
+        "research": agent_research,
+        "prompt":   hist_prompt,
+        "visual":   agent_visual,
+        "montage":  agent_montage,
+        "publish":  hist_publish,
+    }
+
+    job = HIST_JOBS[job_id]
+    agents = job["agents"]
+
+    params = {"job_id": job_id}
+    if agent_name == "research":
+        params["topic_result"] = agents["topic"].get("result") or {}
+    elif agent_name == "prompt":
+        params["research_result"] = agents["research"].get("result") or {}
+    elif agent_name == "visual":
+        params["prompt_result"] = agents["prompt"].get("result") or {}
+    elif agent_name == "montage":
+        params["research_result"] = agents["research"].get("result") or {}
+        params["visual_result"]   = agents["visual"].get("result") or {}
+    elif agent_name == "publish":
+        params["research_result"] = agents["research"].get("result") or {}
+        params["montage_result"]  = agents["montage"].get("result") or {}
+
+    for a in HIST_AGENT_ORDER:
+        if a not in HIST_JOBS[job_id]["agents"]:
+            HIST_JOBS[job_id]["agents"][a] = {"status": "pending", "result": None, "error": None}
+
+    HIST_JOBS[job_id]["agents"][agent_name]["status"] = "running"
+    HIST_JOBS[job_id]["status"] = "running"
+    HIST_JOBS[job_id]["updated_at"] = datetime.now().isoformat()
+    _save_store(HIST_JOBS_FILE, HIST_JOBS)
+
+    try:
+        result = HAGENTS[agent_name].run(params)
+        HIST_JOBS[job_id]["agents"][agent_name] = {"status": "done", "result": result, "error": None}
+        all_done = all(HIST_JOBS[job_id]["agents"][a]["status"] == "done" for a in HIST_AGENT_ORDER)
+        HIST_JOBS[job_id]["status"] = "done" if all_done else "idle"
+    except Exception:
+        err = traceback.format_exc()
+        HIST_JOBS[job_id]["agents"][agent_name] = {"status": "error", "result": None, "error": err}
+        HIST_JOBS[job_id]["status"] = "error"
+    HIST_JOBS[job_id]["updated_at"] = datetime.now().isoformat()
+    _save_store(HIST_JOBS_FILE, HIST_JOBS)
+
+
+@app.post("/api/histoire/jobs")
+def hist_create_job():
+    job_id = f"hist_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:6]}"
+    HIST_JOBS[job_id] = {
+        "id": job_id, "status": "idle",
+        "created_at": datetime.now().isoformat(),
+        "updated_at": datetime.now().isoformat(),
+        "agents": {
+            name: {"status": "pending", "result": None, "error": None}
+            for name in HIST_AGENT_ORDER
+        },
+    }
+    _save_store(HIST_JOBS_FILE, HIST_JOBS)
+    return {"job_id": job_id}
+
+
+@app.get("/api/histoire/jobs")
+def hist_list_jobs():
+    HIST_JOBS.update(_load_store(HIST_JOBS_FILE))
+    return {"jobs": sorted(HIST_JOBS.values(), key=lambda x: x["created_at"], reverse=True)}
+
+
+@app.get("/api/histoire/jobs/{job_id}")
+def hist_get_job(job_id: str):
+    HIST_JOBS.update(_load_store(HIST_JOBS_FILE))
+    if job_id not in HIST_JOBS:
+        raise HTTPException(404, "Job not found")
+    return HIST_JOBS[job_id]
+
+
+@app.post("/api/histoire/jobs/{job_id}/run/{agent_name}")
+def hist_run_agent(job_id: str, agent_name: str):
+    if job_id not in HIST_JOBS:
+        raise HTTPException(404, "Job not found")
+    if agent_name not in HIST_AGENT_ORDER:
+        raise HTTPException(400, f"Unknown agent: {agent_name}")
+    threading.Thread(target=_hist_run_agent, args=(job_id, agent_name), daemon=True).start()
+    return {"ok": True, "agent": agent_name}
+
+
+@app.post("/api/histoire/cron")
+def hist_cron():
+    """Lance le pipeline histoire complet automatiquement."""
+    def full_pipeline():
+        os.environ["FAL_KEY"] = FAL_KEY
+        os.environ["KIE_KEY"] = KIE_KEY
+        import sys
+        sys.path.insert(0, str(Path(__file__).parent))
+        from workflows.histoire import agent_topic, agent_research, agent_prompt as hist_prompt, agent_visual, agent_montage, agent_publish as hist_publish
+
+        job_id = f"hist_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:6]}"
+        HIST_JOBS[job_id] = {
+            "id": job_id, "status": "running",
+            "created_at": datetime.now().isoformat(),
+            "updated_at": datetime.now().isoformat(),
+            "agents": {
+                name: {"status": "pending", "result": None, "error": None}
+                for name in HIST_AGENT_ORDER
+            },
+        }
+        _save_store(HIST_JOBS_FILE, HIST_JOBS)
+
+        steps = [
+            ("topic",    lambda r: {"job_id": job_id}),
+            ("research", lambda r: {"job_id": job_id, "topic_result": r["topic"]}),
+            ("prompt",   lambda r: {"job_id": job_id, "research_result": r["research"]}),
+            ("visual",   lambda r: {"job_id": job_id, "prompt_result": r["prompt"]}),
+            ("montage",  lambda r: {"job_id": job_id, "research_result": r["research"], "visual_result": r["visual"]}),
+            ("publish",  lambda r: {"job_id": job_id, "research_result": r["research"], "montage_result": r["montage"]}),
+        ]
+        agents_map = {
+            "topic":    agent_topic,
+            "research": agent_research,
+            "prompt":   hist_prompt,
+            "visual":   agent_visual,
+            "montage":  agent_montage,
+            "publish":  hist_publish,
+        }
+
+        results = {}
+        for agent_name, build_params in steps:
+            HIST_JOBS[job_id]["agents"][agent_name]["status"] = "running"
+            HIST_JOBS[job_id]["updated_at"] = datetime.now().isoformat()
+            _save_store(HIST_JOBS_FILE, HIST_JOBS)
+            try:
+                result = agents_map[agent_name].run(build_params(results))
+                results[agent_name] = result
+                HIST_JOBS[job_id]["agents"][agent_name] = {"status": "done", "result": result, "error": None}
+            except Exception:
+                err = traceback.format_exc()
+                HIST_JOBS[job_id]["agents"][agent_name] = {"status": "error", "result": None, "error": err}
+                HIST_JOBS[job_id]["status"] = "error"
+                HIST_JOBS[job_id]["updated_at"] = datetime.now().isoformat()
+                _save_store(HIST_JOBS_FILE, HIST_JOBS)
+                return
+
+        HIST_JOBS[job_id]["status"] = "done"
+        HIST_JOBS[job_id]["updated_at"] = datetime.now().isoformat()
+        _save_store(HIST_JOBS_FILE, HIST_JOBS)
+
+    threading.Thread(target=full_pipeline, daemon=True).start()
+    return {"ok": True, "message": "Pipeline histoire lancé"}
+
+
+# ─── Histoire 2 workflow routes ───────────────────────────────────────────────
+
+def _hist2_run_agent(job_id: str, agent_name: str):
+    os.environ["FAL_KEY"] = FAL_KEY
+    os.environ["KIE_KEY"] = KIE_KEY
+    import sys
+    sys.path.insert(0, str(Path(__file__).parent))
+    from workflows.histoire2 import agent_topic as hist2_topic, agent_research as hist2_research, agent_prompt as hist2_prompt, agent_visual as hist2_visual, agent_montage as hist2_montage
+    HAGENTS = {
+        "topic":    hist2_topic,
+        "research": hist2_research,
+        "prompt":   hist2_prompt,
+        "visual":   hist2_visual,
+        "montage":  hist2_montage,
+    }
+
+    for a in HIST2_AGENT_ORDER:
+        if a not in HIST2_JOBS[job_id]["agents"]:
+            HIST2_JOBS[job_id]["agents"][a] = {"status": "pending", "result": None, "error": None}
+
+    HIST2_JOBS[job_id]["agents"][agent_name]["status"] = "running"
+    HIST2_JOBS[job_id]["status"] = "running"
+    HIST2_JOBS[job_id]["updated_at"] = datetime.now().isoformat()
+    _save_store(HIST2_JOBS_FILE, HIST2_JOBS)
+
+    agents = HIST2_JOBS[job_id]["agents"]
+    params = {"job_id": job_id}
+    if agent_name == "research":
+        params["topic_result"] = agents["topic"].get("result") or {}
+    elif agent_name == "prompt":
+        params["research_result"] = agents["research"].get("result") or {}
+    elif agent_name == "visual":
+        params["prompt_result"] = agents["prompt"].get("result") or {}
+    elif agent_name == "montage":
+        params["visual_result"]   = agents["visual"].get("result") or {}
+        params["research_result"] = agents["research"].get("result") or {}
+
+    try:
+        result = HAGENTS[agent_name].run(params)
+        HIST2_JOBS[job_id]["agents"][agent_name] = {"status": "done", "result": result, "error": None}
+        all_done = all(HIST2_JOBS[job_id]["agents"][a]["status"] == "done" for a in HIST2_AGENT_ORDER)
+        HIST2_JOBS[job_id]["status"] = "done" if all_done else "idle"
+    except Exception:
+        err = traceback.format_exc()
+        HIST2_JOBS[job_id]["agents"][agent_name] = {"status": "error", "result": None, "error": err}
+        HIST2_JOBS[job_id]["status"] = "error"
+    HIST2_JOBS[job_id]["updated_at"] = datetime.now().isoformat()
+    _save_store(HIST2_JOBS_FILE, HIST2_JOBS)
+
+
+@app.post("/api/histoire2/jobs")
+def hist2_create_job():
+    job_id = f"hist2_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:6]}"
+    HIST2_JOBS[job_id] = {
+        "id": job_id, "status": "idle",
+        "created_at": datetime.now().isoformat(),
+        "updated_at": datetime.now().isoformat(),
+        "agents": {
+            name: {"status": "pending", "result": None, "error": None}
+            for name in HIST2_AGENT_ORDER
+        },
+    }
+    _save_store(HIST2_JOBS_FILE, HIST2_JOBS)
+    return {"job_id": job_id}
+
+
+@app.get("/api/histoire2/jobs")
+def hist2_list_jobs():
+    HIST2_JOBS.update(_load_store(HIST2_JOBS_FILE))
+    return {"jobs": sorted(HIST2_JOBS.values(), key=lambda x: x["created_at"], reverse=True)}
+
+
+@app.get("/api/histoire2/jobs/{job_id}")
+def hist2_get_job(job_id: str):
+    HIST2_JOBS.update(_load_store(HIST2_JOBS_FILE))
+    if job_id not in HIST2_JOBS:
+        raise HTTPException(404, "Job not found")
+    return HIST2_JOBS[job_id]
+
+
+@app.patch("/api/histoire2/jobs/{job_id}/select-event")
+def hist2_select_event(job_id: str, body: dict = Body(default={})):
+    """Change l'événement sélectionné dans le résultat du topic sans relancer l'agent."""
+    HIST2_JOBS.update(_load_store(HIST2_JOBS_FILE))
+    if job_id not in HIST2_JOBS:
+        raise HTTPException(404, "Job not found")
+    event = body.get("event")
+    if not event:
+        raise HTTPException(400, "event manquant")
+    topic_result = HIST2_JOBS[job_id]["agents"]["topic"].get("result") or {}
+    # Recalcule titre, description, date depuis le nouvel event
+    topic_result["selected_event"] = event
+    topic_result["titre"]       = event.get("title", "")
+    topic_result["description"] = event.get("hook", "")
+    topic_result["date"]        = event.get("exact_date", f"{event.get('year','')}")
+    HIST2_JOBS[job_id]["agents"]["topic"]["result"] = topic_result
+    HIST2_JOBS[job_id]["updated_at"] = datetime.now().isoformat()
+    _save_store(HIST2_JOBS_FILE, HIST2_JOBS)
+    return {"ok": True, "selected": event.get("title")}
+
+
+@app.post("/api/histoire2/jobs/{job_id}/run/{agent_name}")
+def hist2_run_agent(job_id: str, agent_name: str):
+    if job_id not in HIST2_JOBS:
+        raise HTTPException(404, "Job not found")
+    if agent_name not in HIST2_AGENT_ORDER:
+        raise HTTPException(400, f"Unknown agent: {agent_name}")
+    threading.Thread(target=_hist2_run_agent, args=(job_id, agent_name), daemon=True).start()
+    return {"ok": True, "agent": agent_name}

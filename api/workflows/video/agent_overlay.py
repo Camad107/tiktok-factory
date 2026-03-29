@@ -1,9 +1,21 @@
 """Agent 3 — Superpose le texte sur first frame et last frame avec Pillow"""
 import re
+import random
 from pathlib import Path
 from PIL import Image, ImageDraw, ImageFont
 from io import BytesIO
 import httpx
+
+CTA_PHRASES = [
+    "LIKE POUR QUE L'UNIVERS T'ENTENDE",
+    "LIKE ET LAISSE L'UNIVERS AGIR",
+    "LIKE POUR ACTIVER CETTE ENERGIE",
+    "LIKE SI C'EST UN SIGNE POUR TOI",
+    "LIKE SI TU LE SENS",
+    "LIKE POUR QUE CA SE REALISE",
+    "LIKE SI CE MESSAGE EST POUR TOI",
+    "LIKE POUR ATTIRER CETTE ENERGIE",
+]
 
 OUTPUT_DIR = Path("/home/claude-user/tiktok-voyance/output/video_jobs")
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -18,8 +30,8 @@ OUTCOME_COLORS = {
 
 OUTCOME_LABELS = {
     "positive": "✦ Favorable",
-    "neutral":  "✦ Mixed Energy",
-    "negative": "✦ Challenging",
+    "neutral":  "✦ Énergie Mixte",
+    "negative": "✦ Difficile",
 }
 
 
@@ -97,36 +109,68 @@ def draw_separator(draw, y, x0=140, x1=None):
 
 
 def build_intro_frame(first_frame_src: str, question: str, hook: str, job_id: str) -> str:
-    """Frame d'intro : question + hook sur le first frame."""
+    """Frame d'intro : vidéo — question apparaît vite, puis CTA, les deux restent."""
+    import subprocess
+
     img = load_image_from_url_or_path(first_frame_src)
     img = resize_to_tiktok(img)
-    img = dark_overlay(img, 120)
-    draw = ImageDraw.Draw(img)
 
     TOP_SAFE = 320
     BOT_SAFE = H - 420
+    cta = random.choice(CTA_PHRASES)
 
-    # Hook en haut
-    font_hook = load_font(48)
-    hook_clean = strip_emoji(hook).upper()
-    draw_wrapped(draw, hook_clean, TOP_SAFE + 60, font_hook, W - 160, color=(255, 248, 220, 255))
+    def make_frame(with_question: bool, with_cta: bool, path: Path):
+        frame = dark_overlay(img.copy(), 130)
+        draw = ImageDraw.Draw(frame)
+        if with_question:
+            font_q = load_font(68)
+            q_clean = strip_emoji(question)
+            draw_wrapped(draw, q_clean, (TOP_SAFE + BOT_SAFE) // 2, font_q, W - 120, color=(255, 255, 255, 245))
+        if with_cta:
+            draw_separator(draw, BOT_SAFE - 90)
+            font_cta = load_font(36)
+            draw_centered(draw, cta, BOT_SAFE - 55, font_cta, color=(200, 175, 120, 230))
+        frame.convert("RGB").save(str(path), "JPEG", quality=92)
 
-    draw_separator(draw, TOP_SAFE + 150)
+    # 3 états : fond seul / question seule / question + CTA
+    p_bg  = OUTPUT_DIR / f"{job_id}_i0.jpg"
+    p_q   = OUTPUT_DIR / f"{job_id}_i1.jpg"
+    p_all = OUTPUT_DIR / f"{job_id}_i2.jpg"
 
-    # Question au centre
-    font_q = load_font(54)
-    q_clean = strip_emoji(question)
-    draw_wrapped(draw, q_clean, (TOP_SAFE + BOT_SAFE) // 2, font_q, W - 160, color=(255, 255, 255, 240))
+    make_frame(False, False, p_bg)
+    make_frame(True,  False, p_q)
+    make_frame(True,  True,  p_all)
 
-    draw_separator(draw, BOT_SAFE - 80)
+    # Convertir chaque image en clip court, puis xfade
+    out_path = OUTPUT_DIR / f"{job_id}_intro.mp4"
+    v_bg  = OUTPUT_DIR / f"{job_id}_v0.mp4"
+    v_q   = OUTPUT_DIR / f"{job_id}_v1.mp4"
+    v_all = OUTPUT_DIR / f"{job_id}_v2.mp4"
 
-    # CTA bas
-    font_cta = load_font(36)
-    draw_centered(draw, "PICK YOUR CARD", BOT_SAFE - 50, font_cta, color=(200, 175, 120, 220))
+    for src, dst, dur in [(p_bg, v_bg, 0.9), (p_q, v_q, 1.0), (p_all, v_all, 1.5)]:
+        subprocess.run([
+            "ffmpeg", "-y", "-loop", "1", "-t", str(dur), "-r", "25", "-i", str(src),
+            "-vf", f"scale={W}:{H}", "-c:v", "libx264", "-pix_fmt", "yuv420p", str(dst)
+        ], check=True, capture_output=True)
 
-    path = OUTPUT_DIR / f"{job_id}_intro.jpg"
-    img.convert("RGB").save(str(path), "JPEG", quality=92)
-    return str(path)
+    subprocess.run([
+        "ffmpeg", "-y",
+        "-i", str(v_bg), "-i", str(v_q), "-i", str(v_all),
+        "-filter_complex",
+        "[0][1]xfade=transition=fade:duration=0.4:offset=0.5[va];"
+        "[va][2]xfade=transition=fade:duration=0.4:offset=1.1[vout]",
+        "-map", "[vout]",
+        "-c:v", "libx264", "-pix_fmt", "yuv420p",
+        str(out_path)
+    ], check=True, capture_output=True)
+
+    for p in [p_bg, p_q, p_all, v_bg, v_q, v_all]:
+        p.unlink(missing_ok=True)
+
+    for p in [p_bg, p_q, p_all]:
+        p.unlink(missing_ok=True)
+
+    return str(out_path)
 
 
 def build_reveal_frame(last_frame_src: str, card: dict, reading: str, outcome: str, job_id: str) -> str:
@@ -143,7 +187,7 @@ def build_reveal_frame(last_frame_src: str, card: dict, reading: str, outcome: s
 
     # Nom de la carte
     font_name = load_font(52)
-    draw_centered(draw, strip_emoji(card.get("name", "")).upper(), TOP_SAFE + 10, font_name, color=(210, 190, 150, 240))
+    draw_centered(draw, strip_emoji(card.get("name_fr") or card.get("name", "")).upper(), TOP_SAFE + 10, font_name, color=(210, 190, 150, 240))
 
     draw_separator(draw, TOP_SAFE + 100)
 
@@ -161,7 +205,7 @@ def build_reveal_frame(last_frame_src: str, card: dict, reading: str, outcome: s
 
     # Meaning court
     font_meaning = load_font(32)
-    meaning = strip_emoji(card.get("meaning", ""))
+    meaning = strip_emoji(card.get("meaning_fr") or card.get("meaning", ""))
     draw_wrapped(draw, meaning, BOT_SAFE - 30, font_meaning, W - 200, color=(180, 165, 120, 200))
 
     path = OUTPUT_DIR / f"{job_id}_reveal.jpg"
@@ -180,7 +224,7 @@ def run(params: dict) -> dict:
     outcome = question_result.get("outcome", "neutral")
     reading = question_result.get("reading", "")
     hook = question_result.get("hook", "")
-    question = question_result.get("question", "")
+    question = question_result.get("question_fr") or question_result.get("question", "")
 
     last_frame_src = last_frames.get(card_id, "")
     if not last_frame_src:

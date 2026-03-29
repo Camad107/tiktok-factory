@@ -6,28 +6,28 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-PROMPT = """You are a TikTok marketing expert for a mystical tarot account targeting English-speaking US audiences.
+PROMPT = """Tu es un expert marketing TikTok pour un compte tarot mystique ciblant une audience francophone.
 
-Today's tarot video content:
-Hook: {hook}
-Outcome energy: {outcome}
+Contenu de la vidéo tarot du jour :
+Hook : {hook}
+Énergie : {outcome}
 
-Generate a TikTok title, short description, hashtags, and an audio recommendation. Rules:
-- The title must NOT reveal the card name or the reading result. Mysterious, engaging, makes people stop scrolling.
-- The description is 1-2 sentences max, speaking directly to the viewer, creating suspense. No card name. No spoiler.
-- Max 5 hashtags.
-- Suggest ONE real trending TikTok audio/song that fits a mystical tarot vibe and is currently popular in the USA (ambient, ethereal, mysterious, or a popular song with a moody feel). Give the exact search term to find it on TikTok.
+Génère un titre, une courte description, des hashtags et une suggestion audio. Règles :
+- Le titre ne doit PAS révéler le nom de la carte ni le résultat. Mystérieux, accrocheur, fait stopper le scroll.
+- La description est 1 phrase max, qui parle directement au spectateur, crée du suspense. Pas de nom de carte. Pas de spoiler.
+- Max 5 hashtags en français.
+- Suggère UN son TikTok tendance qui correspond à une ambiance tarot mystique (ambiant, éthéré, mystérieux). Donne le terme de recherche exact pour le trouver sur TikTok.
 
-Strict JSON format:
+Format JSON strict :
 {{
-  "title": "mysterious engaging hook (max 60 chars, no emoji, no card name, different from the hook above)",
-  "description": "1-2 sentences. Speak directly to the viewer. Build suspense. Do NOT reveal the card or outcome. Do NOT include hashtags here.",
-  "hashtags": "#tarot #tarotreading #pickacard #spiritualtiktok #tarottok",
-  "audio_suggestion": "exact TikTok search term for a trending mystical/moody audio",
-  "full_text": "description + two line breaks + hashtags (assembled, ready to post)"
+  "title": "hook mystérieux et accrocheur en français (max 60 caractères, sans emoji, sans nom de carte, différent du hook ci-dessus)",
+  "description": "1 phrase en français. Parle directement au spectateur. Crée du suspense. Ne révèle pas la carte. Pas de hashtags ici.",
+  "hashtags": "#tarot #voyance #cartomancie #spiritualite #tarottok",
+  "audio_suggestion": "terme de recherche exact pour un son TikTok tendance mystique/ambiant",
+  "full_text": "title + \\n\\n + description + \\n\\n + hashtags — format exact pour TikTok : le titre sur la première ligne (visible), saut de ligne, puis le reste masqué derrière '...plus'"
 }}
 
-Reply ONLY with the JSON."""
+Réponds UNIQUEMENT avec le JSON."""
 
 
 def run(params: dict) -> dict:
@@ -54,6 +54,8 @@ def run(params: dict) -> dict:
         raise RuntimeError(f"Claude CLI error: {result.stderr}")
 
     raw = result.stdout.strip()
+    if not raw:
+        raise RuntimeError(f"Claude CLI empty stdout. stderr: {result.stderr!r}")
     if "```" in raw:
         raw = raw.split("```")[1]
         if raw.startswith("json"):

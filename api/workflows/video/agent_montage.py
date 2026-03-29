@@ -29,12 +29,16 @@ def run(params: dict) -> dict:
     clip_reenc = OUTPUT_DIR / f"{job_id}_clip_reenc.mp4"
     out_path = OUTPUT_DIR / f"{job_id}_final.mp4"
 
-    # Intro image → vidéo
-    subprocess.run([
-        "ffmpeg", "-y", "-loop", "1", "-i", intro_path,
-        "-c:v", "libx264", "-t", str(INTRO_DUR), "-pix_fmt", "yuv420p", "-r", "25",
-        "-vf", f"scale={W}:{H}", str(intro_vid)
-    ], check=True, capture_output=True)
+    # Intro : déjà une vidéo MP4 si généré par agent_overlay, sinon image → vidéo
+    if Path(intro_path).suffix != ".mp4":
+        subprocess.run([
+            "ffmpeg", "-y", "-loop", "1", "-i", intro_path,
+            "-c:v", "libx264", "-t", str(INTRO_DUR), "-pix_fmt", "yuv420p", "-r", "25",
+            "-vf", f"scale={W}:{H}", str(intro_vid)
+        ], check=True, capture_output=True)
+    else:
+        # Déjà le bon fichier, pas besoin de re-encoder
+        intro_vid = Path(intro_path)
 
     # Reveal image → vidéo
     subprocess.run([
@@ -78,8 +82,8 @@ def run(params: dict) -> dict:
         str(out_path)
     ], check=True, capture_output=True)
 
-    # Cleanup
-    for f in [intro_vid, reveal_vid, clip_reenc]:
+    # Cleanup (ne pas supprimer intro_vid si c'est le fichier source original)
+    for f in [reveal_vid, clip_reenc]:
         try:
             f.unlink()
         except:

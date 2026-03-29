@@ -169,6 +169,25 @@ header .sub { font-size: 0.75rem; color: #5a5a80; margin-top: 3px; }
       </div>
     </a>
 
+    <!-- Retournement Tarot -->
+    <a class="wf-card" href="javascript:void(0)" onclick="location.href=(location.hostname.includes('factorytiktok')?'/?wf=retournement':'/tiktok/?wf=retournement')" style="--accent:#c084fc">
+      <span class="wf-status status-draft">○ Beta</span>
+      <div class="wf-icon">🃏</div>
+      <div class="wf-name">Retournement Tarot</div>
+      <div class="wf-desc">3 cartes face cachée → révélation progressive via Seedream 4.5. Voix ElevenLabs, vidéo MP4 9:16.</div>
+      <div class="wf-tags">
+        <span class="tag">Seedream 4.5</span>
+        <span class="tag">ElevenLabs</span>
+        <span class="tag">Claude AI</span>
+        <span class="tag">FFmpeg</span>
+      </div>
+      <div class="wf-stats">
+        <div>Agents : <span>5</span></div>
+        <div>Format : <span>9:16 MP4</span></div>
+        <div>Durée : <span>~3min</span></div>
+      </div>
+    </a>
+
     <!-- Vidéo Tarot Kling -->
     <a class="wf-card" href="javascript:void(0)" onclick="location.href=(location.hostname.includes('factorytiktok')?'/?wf=video':'/tiktok/?wf=video')" style="--accent:#f43f5e">
       <span class="wf-status status-active">● Actif</span>
@@ -206,13 +225,84 @@ header .sub { font-size: 0.75rem; color: #5a5a80; margin-top: 3px; }
       </div>
     </a>
 
+    <!-- Histoire du Jour -->
+    <a class="wf-card" href="javascript:void(0)" onclick="location.href=(location.hostname.includes('factorytiktok')?'/?wf=histoire':'/tiktok/?wf=histoire')" style="--accent:#e55">
+      <span class="wf-status status-active">● Actif</span>
+      <div class="wf-icon">📅</div>
+      <div class="wf-name">Histoire du Jour</div>
+      <div class="wf-desc">Événement historique viral du jour — faits choc, mystères, insolite. Hook dramatique + overlay date + vidéo loop 5s.</div>
+      <div class="wf-tags">
+        <span class="tag">Claude AI</span>
+        <span class="tag">Flux Pro Ultra</span>
+        <span class="tag">Kling 2.5</span>
+        <span class="tag">Complot</span>
+      </div>
+      <div class="wf-stats">
+        <div>Agents : <span>5</span></div>
+        <div>Format : <span>9:16</span></div>
+        <div>Durée : <span>5s loop</span></div>
+      </div>
+    </a>
+
+    <!-- Histoire du Jour 2 — Géopolitique -->
+    <a class="wf-card" href="javascript:void(0)" onclick="location.href=(location.hostname.includes('factorytiktok')?'/?wf=histoire2':'/tiktok/?wf=histoire2')" style="--accent:#f97316">
+      <span class="wf-status status-active">● Actif</span>
+      <div class="wf-icon">🌍</div>
+      <div class="wf-name">Histoire du Jour 2</div>
+      <div class="wf-desc">Événements guerre, géopolitique, attentats, scandales d'État. Priorité USA / Israël / France / Russie. Scoring orienté indignation et débat.</div>
+      <div class="wf-tags">
+        <span class="tag">Claude AI</span>
+        <span class="tag">Géopolitique</span>
+        <span class="tag">Attentat</span>
+        <span class="tag">Scandale</span>
+      </div>
+      <div class="wf-stats">
+        <div>Agents : <span>1</span></div>
+        <div>Format : <span>9:16</span></div>
+        <div>Niche : <span>Guerre</span></div>
+      </div>
+    </a>
+
     <div class="wf-card add-new" onclick="alert('Bientôt disponible.')">
       <div class="plus">＋</div>
       <span>Nouveau workflow</span>
     </div>
 
   </div>
+
+  <!-- Médiathèque -->
+  <div class="section-title" style="margin-top:40px">Médiathèque</div>
+  <div id="media-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px"></div>
 </div>
+
+<style>
+.media-item { background:#12112a; border:1px solid #1e1e3a; border-radius:10px; overflow:hidden; }
+.media-item video, .media-item img { width:100%; height:200px; object-fit:cover; display:block; }
+.media-meta { padding:8px 10px; }
+.media-name { font-size:0.65rem; color:#6060a0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-bottom:4px; }
+.media-dl { display:block; text-align:center; padding:5px; background:#1a1a35; color:#a78bfa; font-size:0.72rem; text-decoration:none; border-top:1px solid #1e1e3a; }
+.media-dl:hover { background:#2a1a5a; }
+</style>
+
+<script>
+const API = location.hostname.includes('factorytiktok') ? '' : 'http://localhost:8401';
+fetch(`${API}/api/media`).then(r=>r.json()).then(data => {
+  const grid = document.getElementById('media-grid');
+  if (!data.files?.length) { grid.innerHTML = '<div style="color:#3a3a60;font-size:0.8rem">Aucun fichier généré</div>'; return; }
+  grid.innerHTML = data.files.map(f => `
+    <div class="media-item">
+      ${f.type === 'video'
+        ? `<video src="${API}${f.url}" muted loop playsinline onmouseenter="this.play()" onmouseleave="this.pause();this.currentTime=0"></video>`
+        : `<img src="${API}${f.url}" loading="lazy">`}
+      <div class="media-meta">
+        <div class="media-name">${f.name}</div>
+        <div style="font-size:0.6rem;color:#4a4a70">${f.size_mb} MB</div>
+      </div>
+      <a class="media-dl" href="${API}${f.url}" download="${f.name}">⬇ Télécharger</a>
+    </div>
+  `).join('');
+});
+</script>
 
 </body>
 </html>

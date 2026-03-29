@@ -66,6 +66,8 @@ def run(params: dict = None) -> dict:
         raise RuntimeError(f"Claude CLI error: {result.stderr}")
 
     raw = result.stdout.strip()
+    if not raw:
+        raise RuntimeError(f"Claude CLI empty stdout. stderr: {result.stderr!r}")
     if "```" in raw:
         raw = raw.split("```")[1]
         if raw.startswith("json"):
