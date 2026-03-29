@@ -4,7 +4,7 @@ import subprocess
 import random
 from pathlib import Path
 
-ARCANES_FILE = Path("/home/claude-user/tiktok-voyance/data/arcanes.json")
+ARCANES_FILE = Path("/home/claude-user/tiktok-factory/data/arcanes.json")
 
 
 def _load_arcanes() -> list:

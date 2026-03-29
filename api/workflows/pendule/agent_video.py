@@ -6,7 +6,7 @@ from pathlib import Path
 
 from PIL import Image, ImageDraw
 
-OUTPUT_DIR = Path("/home/claude-user/tiktok-voyance/output/pendule")
+OUTPUT_DIR = Path("/home/claude-user/tiktok-factory/output/pendule")
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 W, H = 1080, 1920

@@ -5,7 +5,7 @@ import time
 import httpx
 from pathlib import Path
 
-OUTPUT_DIR = Path("/home/claude-user/tiktok-voyance/output/retournement")
+OUTPUT_DIR = Path("/home/claude-user/tiktok-factory/output/retournement")
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 KIE_API_KEY = "1839ebc2fecc9b2ba957b4b211b390bd"
@@ -120,7 +120,7 @@ def run(params: dict) -> dict:
 
     duration = _get_audio_duration(str(output_path))
     public_url = str(output_path).replace(
-        "/home/claude-user/tiktok-voyance", "https://factorytiktok.duckdns.org"
+        "/home/claude-user/tiktok-factory", "https://factorytiktok.duckdns.org"
     )
 
     return {

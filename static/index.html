@@ -458,7 +458,7 @@ function renderOutput(agentId, result) {
     const imgs = result.images || {};
     let html = `<div class="output-section"><div class="images-grid">`;
     Object.entries(imgs).forEach(([key, path]) => {
-      const url = path.replace('/home/claude-user/tiktok-voyance', API);
+      const url = path.replace('/home/claude-user/tiktok-factory', API);
       html += `<div class="img-box" onclick="openLightbox('${url}')"><img src="${url}" alt="${key}" onerror="this.parentElement.style.background='#1a1a35'"><div class="img-label">${key}</div></div>`;
     });
     html += `</div></div>`;
@@ -469,7 +469,7 @@ function renderOutput(agentId, result) {
     const segs = result.audio_segments || {};
     let html = `<div class="output-section"><div class="audio-list">`;
     Object.entries(segs).forEach(([key, path]) => {
-      const url = path.replace('/home/claude-user/tiktok-voyance', API);
+      const url = path.replace('/home/claude-user/tiktok-factory', API);
       html += `<div class="audio-item"><span class="audio-label">🔊 ${key}</span><audio controls src="${url}"></audio></div>`;
     });
     html += `</div></div>`;
@@ -478,7 +478,7 @@ function renderOutput(agentId, result) {
 
   if (agentId === 'video') {
     if (result.video_path) {
-      const url = result.video_path.replace('/home/claude-user/tiktok-voyance', API);
+      const url = result.video_path.replace('/home/claude-user/tiktok-factory', API);
       return `<div class="video-wrap"><video controls src="${url}"></video><br><a class="dl-btn" href="${url}" download>⬇ Télécharger</a></div>`;
     }
     return '<div style="color:#4a4a70">Pas encore de vidéo</div>';

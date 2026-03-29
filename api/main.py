@@ -1109,9 +1109,9 @@ def list_media():
     import os
     from pathlib import Path
     dirs = [
-        Path("/home/claude-user/tiktok-voyance/output/video_jobs"),
-        Path("/home/claude-user/tiktok-voyance/output/prediction_jobs"),
-        Path("/home/claude-user/tiktok-voyance/output"),
+        Path("/home/claude-user/tiktok-factory/output/video_jobs"),
+        Path("/home/claude-user/tiktok-factory/output/prediction_jobs"),
+        Path("/home/claude-user/tiktok-factory/output"),
     ]
     files = []
     for d in dirs:
@@ -1120,7 +1120,7 @@ def list_media():
         for f in sorted(d.iterdir(), key=lambda x: x.stat().st_mtime, reverse=True):
             if f.suffix.lower() in (".mp4", ".jpg", ".jpeg", ".png", ".gif"):
                 stat = f.stat()
-                url = str(f).replace("/home/claude-user/tiktok-voyance", "")
+                url = str(f).replace("/home/claude-user/tiktok-factory", "")
                 files.append({
                     "name": f.name,
                     "url": url,

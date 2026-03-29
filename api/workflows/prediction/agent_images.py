@@ -9,10 +9,10 @@ from PIL import Image, ImageDraw, ImageFont
 from io import BytesIO
 
 FAL_KEY = os.environ.get("FAL_KEY", "")
-OUTPUT_DIR = Path("/home/claude-user/tiktok-voyance/output/prediction")
+OUTPUT_DIR = Path("/home/claude-user/tiktok-factory/output/prediction")
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
-FONTS_DIR = Path("/home/claude-user/tiktok-voyance/static/fonts")
+FONTS_DIR = Path("/home/claude-user/tiktok-factory/static/fonts")
 W, H = 1080, 1920  # TikTok 9:16
 
 

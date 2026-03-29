@@ -5,9 +5,9 @@ import json
 import asyncio
 from pathlib import Path
 
-OUTPUT_DIR = Path("/home/claude-user/tiktok-voyance/output/videos")
+OUTPUT_DIR = Path("/home/claude-user/tiktok-factory/output/videos")
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-ASSETS_DIR = Path("/home/claude-user/tiktok-voyance/static/assets")
+ASSETS_DIR = Path("/home/claude-user/tiktok-factory/static/assets")
 
 
 def get_audio_duration(audio_path: str) -> float:

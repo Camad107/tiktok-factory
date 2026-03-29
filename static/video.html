@@ -468,7 +468,7 @@ function renderOutput(agentId, result) {
       </div>`;
   }
   if (agentId === 'video_gen') {
-    const videoUrl = (result.video_path||'').replace('/home/claude-user/tiktok-voyance', API||'');
+    const videoUrl = (result.video_path||'').replace('/home/claude-user/tiktok-factory', API||'');
     return `<div class="result-card">
       <div class="result-label">Clip généré</div>
       <div class="video-result"><video controls loop src="${videoUrl}" style="max-width:240px"></video></div>
@@ -487,7 +487,7 @@ function renderOutput(agentId, result) {
     </div>`;
   }
   if (agentId === 'montage') {
-    const finalUrl = (result.final_path||'').replace('/home/claude-user/tiktok-voyance', API||'');
+    const finalUrl = (result.final_path||'').replace('/home/claude-user/tiktok-factory', API||'');
     return `<div class="result-card">
       <div class="result-label">✓ Vidéo finale</div>
       <div class="video-result">

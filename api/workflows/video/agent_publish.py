@@ -91,7 +91,7 @@ def _send_to_inbox(video_path: str, title: str, full_text: str = "") -> dict:
         return {"status": "no_token", "message": "Token TikTok manquant — reconnectez-vous"}
 
     BASE_URL = "https://factorytiktok.duckdns.org"
-    video_url = video_path.replace("/home/claude-user/tiktok-voyance", BASE_URL)
+    video_url = video_path.replace("/home/claude-user/tiktok-factory", BASE_URL)
 
     headers = {
         "Authorization": f"Bearer {token}",

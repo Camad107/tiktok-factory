@@ -6,7 +6,7 @@ import json
 import subprocess
 from pathlib import Path
 
-OUTPUT_DIR = Path("/home/claude-user/tiktok-voyance/output/retournement")
+OUTPUT_DIR = Path("/home/claude-user/tiktok-factory/output/retournement")
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 W, H = 1080, 1920
@@ -169,7 +169,7 @@ def run(params: dict) -> dict:
     if result.returncode != 0:
         raise RuntimeError(f"ffmpeg error:\n{result.stderr[-1500:]}")
 
-    public_url = str(out_path).replace("/home/claude-user/tiktok-voyance", BASE_URL)
+    public_url = str(out_path).replace("/home/claude-user/tiktok-factory", BASE_URL)
 
     return {
         "video_path": str(out_path),

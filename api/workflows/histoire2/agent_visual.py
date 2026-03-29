@@ -5,7 +5,7 @@ import httpx
 from pathlib import Path
 
 KIE_KEY = os.environ.get("KIE_KEY", "")
-OUTPUT_DIR = Path("/home/claude-user/tiktok-voyance/output/histoire2")
+OUTPUT_DIR = Path("/home/claude-user/tiktok-factory/output/histoire2")
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 KIE_BASE = "https://api.kie.ai/api/v1/runway"
@@ -60,7 +60,7 @@ def generate_video(runway_prompt: str, job_id: str) -> tuple[str, str]:
                 out_path = OUTPUT_DIR / f"{job_id}_raw.mp4"
                 out_path.write_bytes(vid_r.content)
                 public_url = str(out_path).replace(
-                    "/home/claude-user/tiktok-voyance", ""
+                    "/home/claude-user/tiktok-factory", ""
                 )
                 return str(out_path), public_url
 

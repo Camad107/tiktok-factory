@@ -76,7 +76,7 @@ def _send_to_inbox(image_paths: list, title: str, full_text: str = "") -> dict:
         return {"status": "no_token", "message": "Token TikTok manquant — reconnectez-vous"}
 
     BASE_URL = "https://factorytiktok.duckdns.org"
-    photo_urls = [p.replace("/home/claude-user/tiktok-voyance", BASE_URL) for p in image_paths]
+    photo_urls = [p.replace("/home/claude-user/tiktok-factory", BASE_URL) for p in image_paths]
 
     headers = {
         "Authorization": f"Bearer {token}",

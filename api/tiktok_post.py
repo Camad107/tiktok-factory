@@ -7,8 +7,8 @@ BASE_URL = "https://factorytiktok.duckdns.org"
 
 def path_to_url(path: str) -> str:
     """Convertit un chemin local en URL publique."""
-    # /home/claude-user/tiktok-voyance/output/... → https://factorytiktok.duckdns.org/output/...
-    relative = path.replace("/home/claude-user/tiktok-voyance", "")
+    # /home/claude-user/tiktok-factory/output/... → https://factorytiktok.duckdns.org/output/...
+    relative = path.replace("/home/claude-user/tiktok-factory", "")
     return f"{BASE_URL}{relative}"
 
 

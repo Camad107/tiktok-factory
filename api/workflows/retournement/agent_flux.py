@@ -7,7 +7,7 @@ from pathlib import Path
 KIE_API_KEY = "1839ebc2fecc9b2ba957b4b211b390bd"
 KIE_BASE = "https://api.kie.ai"
 KIE_UPLOAD_BASE = "https://kieai.redpandaai.co"
-OUTPUT_DIR = Path("/home/claude-user/tiktok-voyance/output/retournement")
+OUTPUT_DIR = Path("/home/claude-user/tiktok-factory/output/retournement")
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 BASE_URL = "https://factorytiktok.duckdns.org"
@@ -109,7 +109,7 @@ def _call_flux(client: httpx.Client, input_path: str, prompt: str, output_path: 
 
 def run(params: dict) -> dict:
     content = params.get("content", {})
-    sources_dir = params.get("sources_dir", "/home/claude-user/tiktok-voyance/output/retournement_sources")
+    sources_dir = params.get("sources_dir", "/home/claude-user/tiktok-factory/output/retournement_sources")
     job_id = content.get("_job_id", params.get("job_id", "ret_unknown"))
 
     # Choisir une photo source aléatoire
@@ -145,7 +145,7 @@ def run(params: dict) -> dict:
     path_C = OUTPUT_DIR / f"{job_id}_C.jpg"
 
     def to_url(p: str) -> str:
-        return p.replace("/home/claude-user/tiktok-voyance", BASE_URL)
+        return p.replace("/home/claude-user/tiktok-factory", BASE_URL)
 
     existing = params.get("flux", {})
 

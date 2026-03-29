@@ -3,7 +3,7 @@ import subprocess
 import tempfile
 from pathlib import Path
 
-OUTPUT_DIR = Path("/home/claude-user/tiktok-voyance/output/video_jobs")
+OUTPUT_DIR = Path("/home/claude-user/tiktok-factory/output/video_jobs")
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 W, H = 1024, 1536
@@ -89,7 +89,7 @@ def run(params: dict) -> dict:
         except:
             pass
 
-    public_url = str(out_path).replace("/home/claude-user/tiktok-voyance", "https://factorytiktok.duckdns.org")
+    public_url = str(out_path).replace("/home/claude-user/tiktok-factory", "https://factorytiktok.duckdns.org")
     return {
         "final_path": str(out_path),
         "final_url": public_url,

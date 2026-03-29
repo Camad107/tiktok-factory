@@ -5,8 +5,8 @@ from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFont
 
-OUTPUT_DIR = Path("/home/claude-user/tiktok-voyance/output/pendule")
-FONTS_DIR = Path("/home/claude-user/tiktok-voyance/static/fonts")
+OUTPUT_DIR = Path("/home/claude-user/tiktok-factory/output/pendule")
+FONTS_DIR = Path("/home/claude-user/tiktok-factory/static/fonts")
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 W, H = 1080, 1920

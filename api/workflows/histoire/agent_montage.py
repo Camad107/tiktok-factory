@@ -4,13 +4,13 @@ import json
 from pathlib import Path
 from PIL import ImageFont
 
-OUTPUT_DIR = Path("/home/claude-user/tiktok-voyance/output/histoire")
+OUTPUT_DIR = Path("/home/claude-user/tiktok-factory/output/histoire")
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 FONTS = {
-    "cinzel":   "/home/claude-user/tiktok-voyance/static/fonts/Cinzel.ttf",
-    "bebas":    "/home/claude-user/tiktok-voyance/static/fonts/BebasNeue.ttf",
-    "oswald":   "/home/claude-user/tiktok-voyance/static/fonts/Oswald-Bold.ttf",
+    "cinzel":   "/home/claude-user/tiktok-factory/static/fonts/Cinzel.ttf",
+    "bebas":    "/home/claude-user/tiktok-factory/static/fonts/BebasNeue.ttf",
+    "oswald":   "/home/claude-user/tiktok-factory/static/fonts/Oswald-Bold.ttf",
     "fallback": "/usr/share/fonts/truetype/lato/Lato-Black.ttf",
 }
 
@@ -166,7 +166,7 @@ def run(params: dict) -> dict:
     ], check=True, capture_output=True)
 
     public_url = str(out_path).replace(
-        "/home/claude-user/tiktok-voyance", "https://factorytiktok.duckdns.org"
+        "/home/claude-user/tiktok-factory", "https://factorytiktok.duckdns.org"
     )
     return {
         "final_path": str(out_path),

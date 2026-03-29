@@ -5,7 +5,7 @@ import httpx
 from pathlib import Path
 
 FAL_KEY = os.environ.get("FAL_KEY", "")
-OUTPUT_DIR = Path("/home/claude-user/tiktok-voyance/output/satisfying")
+OUTPUT_DIR = Path("/home/claude-user/tiktok-factory/output/satisfying")
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 
@@ -47,7 +47,7 @@ def run(params: dict) -> dict:
                     vid_r = client.get(video_url, timeout=120.0)
                     out_path = OUTPUT_DIR / f"{job_id}_video.mp4"
                     out_path.write_bytes(vid_r.content)
-                    public_url = str(out_path).replace("/home/claude-user/tiktok-voyance", "https://factorytiktok.duckdns.org")
+                    public_url = str(out_path).replace("/home/claude-user/tiktok-factory", "https://factorytiktok.duckdns.org")
                     return {"video_path": str(out_path), "video_url": public_url}
                 if pd.get("error"):
                     raise RuntimeError(f"Kling error: {pd['error']}")

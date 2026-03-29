@@ -5,7 +5,7 @@ import httpx
 from pathlib import Path
 
 FAL_KEY = os.environ.get("FAL_KEY", "")
-OUTPUT_DIR = Path("/home/claude-user/tiktok-voyance/output/satisfying")
+OUTPUT_DIR = Path("/home/claude-user/tiktok-factory/output/satisfying")
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 
@@ -43,7 +43,7 @@ def upload_image(img_bytes: bytes, job_id: str) -> str:
     """Sauvegarde l'image et retourne son URL publique."""
     path = OUTPUT_DIR / f"{job_id}_frame.jpg"
     path.write_bytes(img_bytes)
-    return str(path).replace("/home/claude-user/tiktok-voyance", "https://factorytiktok.duckdns.org")
+    return str(path).replace("/home/claude-user/tiktok-factory", "https://factorytiktok.duckdns.org")
 
 
 def generate_video(image_url: str, motion_prompt: str, job_id: str) -> str:
@@ -94,7 +94,7 @@ def run(params: dict) -> dict:
 
     # Anime avec Kling
     video_path = generate_video(image_url, motion_prompt, job_id)
-    video_url = video_path.replace("/home/claude-user/tiktok-voyance", "https://factorytiktok.duckdns.org")
+    video_url = video_path.replace("/home/claude-user/tiktok-factory", "https://factorytiktok.duckdns.org")
 
     return {
         "image_url": image_url,

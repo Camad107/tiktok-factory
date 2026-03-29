@@ -17,9 +17,9 @@ CTA_PHRASES = [
     "LIKE POUR ATTIRER CETTE ENERGIE",
 ]
 
-OUTPUT_DIR = Path("/home/claude-user/tiktok-voyance/output/video_jobs")
+OUTPUT_DIR = Path("/home/claude-user/tiktok-factory/output/video_jobs")
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-FONTS_DIR = Path("/home/claude-user/tiktok-voyance/static/fonts")
+FONTS_DIR = Path("/home/claude-user/tiktok-factory/static/fonts")
 W, H = 1024, 1536
 
 OUTCOME_COLORS = {
@@ -236,6 +236,6 @@ def run(params: dict) -> dict:
     return {
         "intro_path": intro_path,
         "reveal_path": reveal_path,
-        "intro_url": intro_path.replace("/home/claude-user/tiktok-voyance", "https://factorytiktok.duckdns.org"),
-        "reveal_url": reveal_path.replace("/home/claude-user/tiktok-voyance", "https://factorytiktok.duckdns.org"),
+        "intro_url": intro_path.replace("/home/claude-user/tiktok-factory", "https://factorytiktok.duckdns.org"),
+        "reveal_url": reveal_path.replace("/home/claude-user/tiktok-factory", "https://factorytiktok.duckdns.org"),
     }

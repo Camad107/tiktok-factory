@@ -4,14 +4,14 @@ import json
 from pathlib import Path
 from PIL import ImageFont
 
-OUTPUT_DIR = Path("/home/claude-user/tiktok-voyance/output/histoire2")
+OUTPUT_DIR = Path("/home/claude-user/tiktok-factory/output/histoire2")
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 FONTS = {
-    "cinzel":   "/home/claude-user/tiktok-voyance/static/fonts/Cinzel-Bold.ttf",
+    "cinzel":   "/home/claude-user/tiktok-factory/static/fonts/Cinzel-Bold.ttf",
     "liberation": "/usr/share/fonts/truetype/liberation/LiberationSerif-Bold.ttf",
-    "bebas":    "/home/claude-user/tiktok-voyance/static/fonts/BebasNeue.ttf",
-    "oswald":   "/home/claude-user/tiktok-voyance/static/fonts/Oswald-Bold.ttf",
+    "bebas":    "/home/claude-user/tiktok-factory/static/fonts/BebasNeue.ttf",
+    "oswald":   "/home/claude-user/tiktok-factory/static/fonts/Oswald-Bold.ttf",
     "fallback": "/usr/share/fonts/truetype/lato/Lato-Black.ttf",
 }
 
@@ -194,8 +194,8 @@ def run(params: dict) -> dict:
         str(out_path)
     ], check=True, capture_output=True)
 
-    raw_video_url = video_path.replace("/home/claude-user/tiktok-voyance", "")
-    final_url = str(out_path).replace("/home/claude-user/tiktok-voyance", "")
+    raw_video_url = video_path.replace("/home/claude-user/tiktok-factory", "")
+    final_url = str(out_path).replace("/home/claude-user/tiktok-factory", "")
     return {
         "final_path": str(out_path),
         "final_url": final_url,

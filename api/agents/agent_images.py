@@ -6,7 +6,7 @@ import traceback
 from pathlib import Path
 
 FAL_KEY = os.environ.get("FAL_KEY", "")
-OUTPUT_DIR = Path("/home/claude-user/tiktok-voyance/output/images")
+OUTPUT_DIR = Path("/home/claude-user/tiktok-factory/output/images")
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 

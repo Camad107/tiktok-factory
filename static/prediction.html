@@ -392,7 +392,7 @@ function renderOutput(agentId, result) {
     const labels = {image1:'1 — Choix', image2:'2 — Sym.1', image3:'3 — Sym.2', image4:'4 — Sym.3'};
     let h = `<div class="images-carousel">`;
     Object.entries(imgs).forEach(([key, path]) => {
-      const url = path.replace('/home/claude-user/tiktok-voyance', API);
+      const url = path.replace('/home/claude-user/tiktok-factory', API);
       h += `<div class="img-box" onclick="openLightbox('${url}')">
         <img src="${url}" alt="${key}">
         <div class="img-label">${labels[key]||key}</div>

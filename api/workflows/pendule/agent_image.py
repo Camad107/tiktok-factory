@@ -5,7 +5,7 @@ import httpx
 from pathlib import Path
 
 FAL_KEY = os.environ.get("FAL_KEY", "")
-OUTPUT_DIR = Path("/home/claude-user/tiktok-voyance/output/pendule")
+OUTPUT_DIR = Path("/home/claude-user/tiktok-factory/output/pendule")
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 PROMPT = (

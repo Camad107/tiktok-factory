@@ -5,7 +5,7 @@ import traceback
 from pathlib import Path
 
 FAL_KEY = os.environ.get("FAL_KEY", "")
-OUTPUT_DIR = Path("/home/claude-user/tiktok-voyance/output/audio")
+OUTPUT_DIR = Path("/home/claude-user/tiktok-factory/output/audio")
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 FAL_VOICE = os.environ.get("FAL_VOICE_VOYANCE", "Charlotte")
