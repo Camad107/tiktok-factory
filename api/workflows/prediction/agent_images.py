@@ -145,7 +145,7 @@ def build_image1(img_bytes: bytes, content: dict) -> str:
     draw = ImageDraw.Draw(img)
 
     hook = strip_emoji(content.get("hook", "Choisissez votre carte"))
-    cta = strip_emoji(content.get("cta", "Commentez votre symbole"))
+    cta = "Choisis un symbole"
 
     # Safe zones TikTok — 320px haut (profil+titre), 420px bas (boutons)
     TOP_SAFE = 320
@@ -162,7 +162,7 @@ def build_image1(img_bytes: bytes, content: dict) -> str:
     draw_ornament(draw, W // 2, BOT_SAFE - 70, half_w=120)
 
     # CTA en bas
-    font_cta = load_font(42)
+    font_cta = load_font(62)
     draw_wrapped(draw, cta, BOT_SAFE - 20, font_cta, W - 160, color=(200, 180, 140, 230))
 
     path = OUTPUT_DIR / f"{content.get('_job_id', 'job')}_1_choix.jpg"

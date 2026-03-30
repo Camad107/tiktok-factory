@@ -206,6 +206,25 @@ header .sub { font-size: 0.75rem; color: #5a5a80; margin-top: 3px; }
       </div>
     </a>
 
+    <!-- Retournement Tarot 2 -->
+    <a class="wf-card" href="javascript:void(0)" onclick="location.href=(location.hostname.includes('factorytiktok')?'/?wf=retournement2':'/tiktok/?wf=retournement2')" style="--accent:#c084fc">
+      <span class="wf-status status-draft">○ Beta</span>
+      <div class="wf-icon">🃏</div>
+      <div class="wf-name">Retournement Tarot 2</div>
+      <div class="wf-desc">3 cartes face cachée → révélation progressive via Seedream 4.5. Voix ElevenLabs, vidéo MP4 9:16.</div>
+      <div class="wf-tags">
+        <span class="tag">Seedream 4.5</span>
+        <span class="tag">ElevenLabs</span>
+        <span class="tag">Claude AI</span>
+        <span class="tag">FFmpeg</span>
+      </div>
+      <div class="wf-stats">
+        <div>Agents : <span>5</span></div>
+        <div>Format : <span>9:16 MP4</span></div>
+        <div>Durée : <span>~3min</span></div>
+      </div>
+    </a>
+
     <!-- Vidéo Tarot Kling -->
     <a class="wf-card" id="card-video" href="javascript:void(0)" onclick="location.href=(location.hostname.includes('factorytiktok')?'/?wf=video':'/tiktok/?wf=video')" style="--accent:#f43f5e">
       <span class="wf-status status-active">● Actif</span>
@@ -213,6 +232,25 @@ header .sub { font-size: 0.75rem; color: #5a5a80; margin-top: 3px; }
       <div class="wf-icon">🎬</div>
       <div class="wf-name">Vidéo Tarot</div>
       <div class="wf-desc">Génère une vidéo de révélation de carte tarot via Kling O3 — first frame → last frame, mouvement IA cinématographique.</div>
+      <div class="wf-tags">
+        <span class="tag">Kling O3</span>
+        <span class="tag">Image-to-Video</span>
+        <span class="tag">9:16</span>
+      </div>
+      <div class="wf-stats">
+        <div>Modèle : <span>Kling O3</span></div>
+        <div>Format : <span>9:16</span></div>
+        <div>Durée : <span>5-10s</span></div>
+      </div>
+    </a>
+
+    <!-- Vidéo Tarot 2 -->
+    <a class="wf-card" id="card-video2" href="javascript:void(0)" onclick="location.href=(location.hostname.includes('factorytiktok')?'/?wf=video2':'/tiktok/?wf=video2')" style="--accent:#f43f5e">
+      <span class="wf-status status-active">● Actif</span>
+      <button class="wf-toggle" id="toggle-video2" title="Activer/désactiver le cron automatique" onclick="event.preventDefault();event.stopPropagation();toggleWf('video2')"></button>
+      <div class="wf-icon">🎬</div>
+      <div class="wf-name">Vidéo Tarot 2</div>
+      <div class="wf-desc">Duplicate du workflow Vidéo Tarot — compte TikTok secondaire.</div>
       <div class="wf-tags">
         <span class="tag">Kling O3</span>
         <span class="tag">Image-to-Video</span>
@@ -241,6 +279,24 @@ header .sub { font-size: 0.75rem; color: #5a5a80; margin-top: 3px; }
         <div>Agents : <span>3</span></div>
         <div>Format : <span>9:16</span></div>
         <div>Durée : <span>5s</span></div>
+      </div>
+    </a>
+
+    <!-- Tarot Deck -->
+    <a class="wf-card" href="javascript:void(0)" onclick="location.href=(location.hostname.includes('factorytiktok')?'/?wf=tarot_deck':'/tiktok/?wf=tarot_deck')" style="--accent:#d97706">
+      <span class="wf-status status-active">● Actif</span>
+      <div class="wf-icon">🃏</div>
+      <div class="wf-name">Tarot Deck Factory</div>
+      <div class="wf-desc">Génère un deck de 22 arcanes majeurs carte par carte. Référence Rider-Waite + Flux Kontext Pro, noms en français.</div>
+      <div class="wf-tags">
+        <span class="tag">Flux Kontext Pro</span>
+        <span class="tag">22 arcanes</span>
+        <span class="tag">Multi-deck</span>
+      </div>
+      <div class="wf-stats">
+        <div>Agents : <span>2</span></div>
+        <div>Format : <span>9:16</span></div>
+        <div>Style : <span>Custom</span></div>
       </div>
     </a>
 
@@ -301,7 +357,9 @@ header .sub { font-size: 0.75rem; color: #5a5a80; margin-top: 3px; }
         <option value="prediction">Prédiction</option>
         <option value="pendule">Pendule</option>
         <option value="retournement">Retournement</option>
+        <option value="retournement2">Retournement 2</option>
         <option value="video">Vidéo Tarot</option>
+        <option value="video2">Vidéo Tarot 2</option>
         <option value="satisfying">Satisfying</option>
         <option value="histoire">Histoire</option>
         <option value="histoire2">Histoire 2</option>

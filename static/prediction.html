@@ -342,18 +342,12 @@ function renderOutput(agentId, result) {
     const statusColor = pub.status === 'sent_to_inbox' ? '#4ade80' : '#f87171';
     const statusIcon = pub.status === 'sent_to_inbox' ? '✓' : '✗';
     return `
-      <div style="background:#0d0d20;border:1px solid #2a2a4a;border-radius:10px;padding:14px;margin-bottom:12px">
-        <div style="font-size:0.68rem;color:#a78bfa;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px">Titre</div>
-        <div style="font-size:0.9rem;font-weight:600;color:#fbbf24">${esc(result.title||'')}</div>
-      </div>
-      <div style="background:#0d0d20;border:1px solid #2a2a4a;border-radius:10px;padding:14px;margin-bottom:12px">
-        <div style="font-size:0.68rem;color:#a78bfa;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px">Description</div>
-        <div style="font-size:0.82rem;color:#d0d0e8;line-height:1.6">${esc(result.description||'')}</div>
-      </div>
-      <div style="background:#0d0d20;border:1px solid #2a2a4a;border-radius:10px;padding:14px;margin-bottom:12px">
-        <div style="font-size:0.68rem;color:#a78bfa;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px">Hashtags</div>
-        <div style="font-size:0.8rem;color:#60a5fa">${esc(result.hashtags||'')}</div>
-      </div>
+      <div style="font-size:0.68rem;color:#a78bfa;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px">Caption</div>
+      <textarea readonly onclick="this.select()" style="width:100%;background:#0d0d20;border:1px solid #2a2a4a;border-radius:10px;padding:14px;color:#d0d0e8;font-size:0.82rem;line-height:1.7;font-family:inherit;resize:none;outline:none;margin-bottom:12px;min-height:180px">${esc(result.title||'')}
+
+${esc(result.description||'')}
+
+${esc(result.hashtags||'')}</textarea>
       <div style="background:#0d0d20;border:1px solid ${statusColor}40;border-radius:10px;padding:14px">
         <div style="font-size:0.68rem;color:#a78bfa;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px">Publication TikTok</div>
         <div style="font-size:0.85rem;color:${statusColor}">${statusIcon} ${esc(pub.message||pub.status||'')}</div>
@@ -403,10 +397,16 @@ function renderOutput(agentId, result) {
     h += `<div style="margin-top:16px;text-align:center">
       <input id="tt-caption" type="text" placeholder="Légende TikTok (optionnel)" style="width:100%;max-width:400px;background:#1a1a2e;border:1px solid #2a2a4a;color:#e0e0ff;padding:8px 12px;border-radius:8px;font-size:0.85rem;margin-bottom:10px">
       <br>
-      <button onclick="publishTikTok()" style="background:linear-gradient(135deg,#ff0050,#ff4080);color:#fff;border:none;padding:10px 28px;border-radius:10px;font-size:0.9rem;font-weight:600;cursor:pointer;letter-spacing:0.5px">
-        ▶ Publier sur TikTok
-      </button>
+      <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:4px">
+        <button onclick="publishTikTok()" style="background:linear-gradient(135deg,#ff0050,#ff4080);color:#fff;border:none;padding:10px 28px;border-radius:10px;font-size:0.9rem;font-weight:600;cursor:pointer;letter-spacing:0.5px">
+          ▶ Publier sur TikTok
+        </button>
+        <button onclick="downloadForInstagram()" style="background:linear-gradient(135deg,#833ab4,#fd1d1d,#fcb045);color:#fff;border:none;padding:10px 28px;border-radius:10px;font-size:0.9rem;font-weight:600;cursor:pointer;letter-spacing:0.5px">
+          📸 Instagram (↓ galerie)
+        </button>
+      </div>
       <div id="tt-status" style="margin-top:8px;font-size:0.8rem;color:#9090b0"></div>
+      <div id="ig-status" style="margin-top:6px;font-size:0.8rem;color:#9090b0"></div>
     </div>`;
     return h;
   }
@@ -436,6 +436,74 @@ async function publishTikTok() {
     status.textContent = '✗ Erreur : ' + e.message;
     status.style.color = '#f87171';
   }
+}
+
+async function copyCaption(btn, title, description, hashtags) {
+  const text = [title, description, hashtags].filter(Boolean).join('\n\n');
+  try {
+    await navigator.clipboard.writeText(text);
+    btn.textContent = '✓ Copié !';
+    btn.style.color = '#4ade80';
+    btn.style.borderColor = '#4ade80';
+    setTimeout(() => {
+      btn.textContent = '📋 Copier titre + description + hashtags';
+      btn.style.color = '#c4b5fd';
+      btn.style.borderColor = '#7c3aed';
+    }, 2000);
+  } catch(e) {
+    btn.textContent = '✗ Erreur clipboard';
+  }
+}
+
+async function downloadForInstagram() {
+  const job = await fetchJob(currentJobId);
+  if (!job) return;
+  const images = job.agents?.images?.result?.images;
+  if (!images) return;
+
+  const caption = document.getElementById('tt-caption')?.value || '';
+  const igStatus = document.getElementById('ig-status');
+
+  const urls = Object.values(images).map(p => p.replace('/home/claude-user/tiktok-factory', API));
+
+  // Copie la caption dans le presse-papier
+  if (caption) {
+    try {
+      await navigator.clipboard.writeText(caption);
+      igStatus.textContent = '📋 Caption copiée !';
+      igStatus.style.color = '#a78bfa';
+    } catch(e) {}
+  }
+
+  // Télécharge chaque image une par une dans la galerie
+  igStatus.textContent = '⏳ Téléchargement des images...';
+  igStatus.style.color = '#fbbf24';
+
+  let done = 0;
+  for (let i = 0; i < urls.length; i++) {
+    try {
+      const resp = await fetch(urls[i]);
+      const blob = await resp.blob();
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `instagram_${i+1}.jpg`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+      done++;
+      igStatus.textContent = `⏳ ${done}/${urls.length} images téléchargées...`;
+      // Petite pause entre chaque pour éviter que le navigateur bloque
+      await new Promise(r => setTimeout(r, 600));
+    } catch(e) {
+      igStatus.textContent = `✗ Erreur image ${i+1} : ${e.message}`;
+      igStatus.style.color = '#f87171';
+      return;
+    }
+  }
+
+  igStatus.innerHTML = `✓ ${done} images dans ta galerie — ouvre Instagram → <strong>+</strong> → Sélectionner tout`;
+  igStatus.style.color = '#4ade80';
 }
 
 function buildParams(agentId, job) {

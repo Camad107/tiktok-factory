@@ -45,7 +45,7 @@ BANNED_WORDS = [
     "briller", "s'épanouir", "rayonner", "amour universel"
 ]
 
-PROMPT = """Tu es un oracle TikTok. Style: sobre, poétique, personnel — s'adressant directement à quelqu'un.
+PROMPT = """Tu es un oracle TikTok. Style: sobre, poétique, personnel — s'adressant directement à quelqu'un en le tutoyant (tu, toi, ton, ta, tes).
 Aujourd'hui: {date} ({day})
 Thème du jour: {theme}
 Phase du cycle: jour {cycle_day}/14
@@ -54,6 +54,7 @@ RÈGLES IMPORTANTES:
 - Chaque prédiction doit être unique et spécifique à son symbole
 - Évite absolument ces mots surexploités: {banned_words}
 - Les prédictions doivent être concrètes et toucher quelque chose de réel dans la vie quotidienne
+- Utilise TOUJOURS le tutoiement (tu, toi, ton, ta, tes) — jamais le vouvoiement
 - Le hook doit refléter le thème d'aujourd'hui sans le nommer explicitement
 - TOUT le texte DOIT être en français
 

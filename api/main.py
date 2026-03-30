@@ -7,7 +7,7 @@ import traceback
 from datetime import datetime
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException, Body, Request, UploadFile, File
+from fastapi import FastAPI, HTTPException, Body, Request, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, RedirectResponse, HTMLResponse
@@ -19,6 +19,7 @@ STATIC_DIR = Path(__file__).parent.parent / "static"
 OUTPUT_DIR = Path(__file__).parent.parent / "output"
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 app.mount("/output", StaticFiles(directory=str(OUTPUT_DIR)), name="output")
+app.mount("/data", StaticFiles(directory=str(Path(__file__).parent.parent / "data")), name="data")
 
 FAL_KEY = os.environ.get("FAL_KEY", "")
 KIE_KEY = os.environ.get("KIE_KEY", "")
@@ -31,6 +32,7 @@ JOBS_FILE = DATA_DIR / "jobs.json"
 PRED_JOBS_FILE = DATA_DIR / "pred_jobs.json"
 PENDULE_JOBS_FILE = DATA_DIR / "pendule_jobs.json"
 VIDEO_JOBS_FILE = DATA_DIR / "video_jobs.json"
+VIDEO2_JOBS_FILE = DATA_DIR / "video2_jobs.json"
 
 
 def _load_store(path: Path) -> dict:
@@ -65,8 +67,19 @@ PRED_JOBS: dict[str, dict] = _load_store(PRED_JOBS_FILE)
 PENDULE_JOBS: dict[str, dict] = _load_store(PENDULE_JOBS_FILE)
 PENDULE_AGENT_ORDER = ["image", "video"]
 VIDEO_JOBS: dict[str, dict] = _load_store(VIDEO_JOBS_FILE)
+VIDEO2_JOBS: dict[str, dict] = _load_store(VIDEO2_JOBS_FILE)
 RET_AGENT_ORDER = ["content", "prompts", "flux", "voice", "video", "publish"]
 RET_JOBS_FILE = DATA_DIR / "retournement_jobs.json"
+
+RET2_AGENT_ORDER = ["content", "prompts", "flux", "voice", "video", "publish"]
+RET2_JOBS_FILE = DATA_DIR / "retournement2_jobs.json"
+RET2_SETTINGS_FILE = DATA_DIR / "retournement2_settings.json"
+RET2_SOURCES_DIR = Path(__file__).parent.parent / "output" / "retournement2_sources"
+RET2_OUTPUT_DIR = Path(__file__).parent.parent / "output" / "retournement2"
+RET2_JOBS: dict[str, dict] = _load_store(RET2_JOBS_FILE)
+_reset_running_jobs(RET2_JOBS)
+RET2_SOURCES_DIR.mkdir(parents=True, exist_ok=True)
+RET2_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 HIST_AGENT_ORDER = ["topic", "research", "prompt", "visual", "montage", "publish"]
 HIST_JOBS_FILE = DATA_DIR / "histoire_jobs.json"
@@ -81,12 +94,14 @@ RET_SETTINGS_FILE = DATA_DIR / "retournement_settings.json"
 RET_SOURCES_DIR = Path(__file__).parent.parent / "output" / "retournement_sources"
 RET_OUTPUT_DIR = Path(__file__).parent.parent / "output" / "retournement"
 RET_JOBS: dict[str, dict] = _load_store(RET_JOBS_FILE)
-for _store in [JOBS, PRED_JOBS, PENDULE_JOBS, VIDEO_JOBS, RET_JOBS]:
+for _store in [JOBS, PRED_JOBS, PENDULE_JOBS, VIDEO_JOBS, RET_JOBS, RET2_JOBS]:
     _reset_running_jobs(_store)
 RET_SOURCES_DIR.mkdir(parents=True, exist_ok=True)
 RET_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 VIDEO_UPLOAD_DIR = Path(__file__).parent.parent / "output" / "video_refs"
 VIDEO_UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+VIDEO2_UPLOAD_DIR = Path(__file__).parent.parent / "output" / "video2_refs"
+VIDEO2_UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
 
 def make_job(job_id: str) -> dict:
@@ -160,14 +175,20 @@ def index(wf: str = None):
         return FileResponse(str(STATIC_DIR / "pendule.html"), headers=headers)
     if wf == "video":
         return FileResponse(str(STATIC_DIR / "video.html"), headers=headers)
+    if wf == "video2":
+        return FileResponse(str(STATIC_DIR / "video2.html"), headers=headers)
     if wf == "satisfying":
         return FileResponse(str(STATIC_DIR / "satisfying.html"), headers=headers)
     if wf == "retournement":
         return FileResponse(str(STATIC_DIR / "retournement.html"), headers=headers)
+    if wf == "retournement2":
+        return FileResponse(str(STATIC_DIR / "retournement2.html"), headers=headers)
     if wf == "histoire":
         return FileResponse(str(STATIC_DIR / "histoire.html"), headers=headers)
     if wf == "histoire2":
         return FileResponse(str(STATIC_DIR / "histoire2.html"), headers=headers)
+    if wf == "tarot_deck":
+        return FileResponse(str(STATIC_DIR / "tarot_deck.html"), headers=headers)
     if wf:
         return FileResponse(str(STATIC_DIR / "index.html"), headers=headers)
     return FileResponse(str(STATIC_DIR / "home.html"), headers=headers)
@@ -349,6 +370,21 @@ VIDEO_AGENT_ORDER = ["question", "video_gen", "overlay", "montage", "publish"]
 VIDEO_SETTINGS_FILE = DATA_DIR / "video_settings.json"
 VIDEO_SETTINGS: dict = _load_store(VIDEO_SETTINGS_FILE) if VIDEO_SETTINGS_FILE.exists() else {"first_frame_url": None, "last_frames": {}}
 
+# video_gen est standalone (pré-génération batch), pas dans le pipeline quotidien
+VIDEO2_AGENT_ORDER = ["question", "overlay", "montage", "publish"]
+VIDEO2_PREGEN_AGENT = "video_gen"
+VIDEO2_SETTINGS_FILE = DATA_DIR / "video2_settings.json"
+def _init_video2_settings() -> dict:
+    if VIDEO2_SETTINGS_FILE.exists():
+        return _load_store(VIDEO2_SETTINGS_FILE)
+    # Première fois : copie depuis video1
+    s1 = _load_store(VIDEO_SETTINGS_FILE) if VIDEO_SETTINGS_FILE.exists() else {"first_frame_url": None, "last_frames": {}}
+    import copy
+    s2 = copy.deepcopy(s1)
+    _save_store(VIDEO2_SETTINGS_FILE, s2)
+    return s2
+VIDEO2_SETTINGS: dict = _init_video2_settings()
+
 
 @app.post("/api/video/upload")
 async def video_upload_frame(file: UploadFile = File(...), frame: str = "first", job_id: str = "global"):
@@ -432,7 +468,7 @@ def _video_agent_run(job_id: str, agent_name: str):
 
     job = VIDEO_JOBS[job_id]
     agents = job["agents"]
-    settings = _load_store(VIDEO_SETTINGS_FILE)
+    settings = _load_store(VIDEO2_SETTINGS_FILE)
 
     params = {
         "job_id": job_id,
@@ -499,7 +535,7 @@ def video_cron():
         }
         _save_store(VIDEO_JOBS_FILE, VIDEO_JOBS)
 
-        settings = _load_store(VIDEO_SETTINGS_FILE)
+        settings = _load_store(VIDEO2_SETTINGS_FILE)
         base_params = {
             "job_id": job_id,
             "first_frame_url": settings.get("first_frame_url", ""),
@@ -553,6 +589,247 @@ def video_run_agent(job_id: str, agent_name: str, body: dict = Body(default={}))
         VIDEO_JOBS[job_id]["subject_id"] = body["subject_id"]
         _save_store(VIDEO_JOBS_FILE, VIDEO_JOBS)
     threading.Thread(target=_video_agent_run, args=(job_id, agent_name), daemon=True).start()
+    return {"ok": True, "agent": agent_name}
+
+
+# ─── Video2 workflow routes ───────────────────────────────────────────────────
+
+@app.post("/api/video2/upload")
+async def video2_upload_frame(file: UploadFile = File(...), frame: str = "first", job_id: str = "global"):
+    ext = Path(file.filename).suffix or ".jpg"
+    filename = f"{job_id}_{frame}{ext}"
+    dest = VIDEO2_UPLOAD_DIR / filename
+    dest.write_bytes(await file.read())
+    public_url = f"https://factorytiktok.duckdns.org/output/video2_refs/{filename}"
+    return {"url": public_url, "path": str(dest)}
+
+
+@app.get("/api/video2/settings")
+def video2_get_settings():
+    return _load_store(VIDEO2_SETTINGS_FILE)
+
+
+@app.patch("/api/video2/settings")
+def video2_update_settings(body: dict = Body(default={})):
+    s = _load_store(VIDEO2_SETTINGS_FILE)
+    if "first_frame_url" in body:
+        s["first_frame_url"] = body["first_frame_url"]
+    if "first_frame_urls" in body:
+        s["first_frame_urls"] = body["first_frame_urls"]
+    if "first_frame_prompts" in body:
+        s["first_frame_prompts"] = body["first_frame_prompts"]
+    if "last_frames" in body:
+        s.setdefault("last_frames", {}).update(body["last_frames"])
+    _save_store(VIDEO2_SETTINGS_FILE, s)
+    VIDEO2_SETTINGS.clear()
+    VIDEO2_SETTINGS.update(s)
+    return s
+
+
+@app.post("/api/video2/jobs")
+def video2_create_job():
+    job_id = f"vid2_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:6]}"
+    VIDEO2_JOBS[job_id] = {
+        "id": job_id, "status": "idle",
+        "created_at": datetime.now().isoformat(),
+        "updated_at": datetime.now().isoformat(),
+        "subject_id": None,
+        "agents": {
+            name: {"status": "pending", "result": None, "error": None}
+            for name in VIDEO2_AGENT_ORDER
+        },
+    }
+    _save_store(VIDEO2_JOBS_FILE, VIDEO2_JOBS)
+    return {"job_id": job_id}
+
+
+@app.get("/api/video2/jobs")
+def video2_list_jobs():
+    VIDEO2_JOBS.update(_load_store(VIDEO2_JOBS_FILE))
+    return {"jobs": sorted(VIDEO2_JOBS.values(), key=lambda x: x["created_at"], reverse=True)}
+
+
+@app.get("/api/video2/jobs/{job_id}")
+def video2_get_job(job_id: str):
+    VIDEO2_JOBS.update(_load_store(VIDEO2_JOBS_FILE))
+    if job_id not in VIDEO2_JOBS:
+        raise HTTPException(404, "Job not found")
+    return VIDEO2_JOBS[job_id]
+
+
+@app.patch("/api/video2/jobs/{job_id}")
+def video2_update_job(job_id: str, body: dict = Body(default={})):
+    if job_id not in VIDEO2_JOBS:
+        raise HTTPException(404, "Job not found")
+    if "subject_id" in body:
+        VIDEO2_JOBS[job_id]["subject_id"] = body["subject_id"]
+    VIDEO2_JOBS[job_id]["updated_at"] = datetime.now().isoformat()
+    _save_store(VIDEO2_JOBS_FILE, VIDEO2_JOBS)
+    return VIDEO2_JOBS[job_id]
+
+
+def _video2_agent_run(job_id: str, agent_name: str):
+    os.environ["FAL_KEY"] = FAL_KEY
+    import sys
+    sys.path.insert(0, str(Path(__file__).parent))
+    from workflows.video2 import agent_question, agent_overlay, agent_montage, agent_publish
+    VAGENTS = {
+        "question": agent_question,
+        "overlay": agent_overlay,
+        "montage": agent_montage,
+        "publish": agent_publish,
+    }
+
+    # Toujours lire depuis le fichier pour avoir les résultats les plus récents
+    job = _load_store(VIDEO2_JOBS_FILE).get(job_id, VIDEO2_JOBS.get(job_id, {}))
+    VIDEO2_JOBS[job_id] = job  # resync mémoire
+    agents = job["agents"]
+
+    params = {"job_id": job_id}
+    if agent_name == "question":
+        params["subject_id"] = job.get("subject_id")
+    elif agent_name == "overlay":
+        params["question_result"] = agents["question"].get("result") or {}
+        _v2s = _load_store(VIDEO2_SETTINGS_FILE)
+        params["last_frames"] = _v2s.get("last_frames", {})
+        params["first_frame_url"] = _v2s.get("first_frame_url", "")
+    elif agent_name == "montage":
+        params["overlay_result"] = agents["overlay"].get("result") or {}
+        params["question_result"] = agents["question"].get("result") or {}
+        params["pregenerated_clips"] = _load_store(VIDEO2_SETTINGS_FILE).get("pregenerated_clips", {})
+    elif agent_name == "publish":
+        params["question_result"] = agents["question"].get("result") or {}
+        params["montage_result"] = agents["montage"].get("result") or {}
+
+    for a in VIDEO2_AGENT_ORDER:
+        if a not in VIDEO2_JOBS[job_id]["agents"]:
+            VIDEO2_JOBS[job_id]["agents"][a] = {"status": "pending", "result": None, "error": None}
+
+    VIDEO2_JOBS[job_id]["agents"][agent_name]["status"] = "running"
+    VIDEO2_JOBS[job_id]["status"] = "running"
+    VIDEO2_JOBS[job_id]["updated_at"] = datetime.now().isoformat()
+    _save_store(VIDEO2_JOBS_FILE, VIDEO2_JOBS)
+
+    try:
+        result = VAGENTS[agent_name].run(params)
+        VIDEO2_JOBS[job_id]["agents"][agent_name] = {"status": "done", "result": result, "error": None}
+        all_done = all(VIDEO2_JOBS[job_id]["agents"][a]["status"] == "done" for a in VIDEO2_AGENT_ORDER)
+        VIDEO2_JOBS[job_id]["status"] = "done" if all_done else "idle"
+    except Exception:
+        err = traceback.format_exc()
+        VIDEO2_JOBS[job_id]["agents"][agent_name] = {"status": "error", "result": None, "error": err}
+        VIDEO2_JOBS[job_id]["status"] = "error"
+    VIDEO2_JOBS[job_id]["updated_at"] = datetime.now().isoformat()
+    _save_store(VIDEO2_JOBS_FILE, VIDEO2_JOBS)
+
+
+@app.post("/api/video2/clips/upload")
+async def video2_clip_upload(file: UploadFile = File(...), card_id: str = Form(...)):
+    """Upload direct d'un clip vidéo pour une carte."""
+    if not card_id:
+        raise HTTPException(400, "card_id manquant")
+    clips_dir = Path(__file__).parent.parent / "output" / "video2_clips"
+    clips_dir.mkdir(parents=True, exist_ok=True)
+    out_path = clips_dir / f"card_{card_id}.mp4"
+    out_path.write_bytes(await file.read())
+    # Mise à jour settings
+    settings = _load_store(VIDEO2_SETTINGS_FILE)
+    settings.setdefault("pregenerated_clips", {})[card_id] = str(out_path)
+    _save_store(VIDEO2_SETTINGS_FILE, settings)
+    VIDEO2_SETTINGS["pregenerated_clips"] = settings["pregenerated_clips"]
+    return {"ok": True, "path": str(out_path)}
+
+
+@app.post("/api/video2/pregen")
+def video2_pregen(body: dict = Body(default={})):
+    """Lance la pré-génération des clips Kling (toutes les cartes ou une seule)."""
+    _card_id = body.get("card_id")
+    _frame_index = body.get("frame_index")  # None = aléatoire, 0 ou 1 = forcé
+    _fal_key = FAL_KEY
+    def run_pregen():
+        try:
+            os.environ["FAL_KEY"] = _fal_key
+            import sys
+            sys.path.insert(0, str(Path(__file__).parent))
+            from workflows.video2 import agent_video_gen
+            agent_video_gen.run({"card_id": _card_id, "frame_index": _frame_index})
+        except Exception:
+            pass
+    threading.Thread(target=run_pregen, daemon=True).start()
+    card_id = body.get("card_id")
+    return {"ok": True, "message": f"Pré-génération lancée pour {'toutes les cartes' if not card_id else card_id}"}
+
+
+@app.post("/api/video2/cron")
+def video2_cron():
+    """Lance le pipeline video2 quotidien (question → overlay → montage → publish)."""
+    if not is_workflow_enabled("video2"):
+        return {"ok": False, "reason": "workflow disabled"}
+    def full_pipeline():
+        os.environ["FAL_KEY"] = FAL_KEY
+        import sys
+        sys.path.insert(0, str(Path(__file__).parent))
+        from workflows.video2 import agent_question, agent_overlay, agent_montage, agent_publish
+
+        job_id = f"vid2_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:6]}"
+        VIDEO2_JOBS[job_id] = {
+            "id": job_id, "status": "running",
+            "created_at": datetime.now().isoformat(),
+            "updated_at": datetime.now().isoformat(),
+            "subject_id": None,
+            "agents": {
+                name: {"status": "pending", "result": None, "error": None}
+                for name in VIDEO2_AGENT_ORDER
+            },
+        }
+        _save_store(VIDEO2_JOBS_FILE, VIDEO2_JOBS)
+
+        steps = [
+            ("question", lambda r: {"job_id": job_id}),
+            ("overlay",  lambda r: {"job_id": job_id, "question_result": r["question"]}),
+            ("montage",  lambda r: {"job_id": job_id, "overlay_result": r["overlay"], "question_result": r["question"]}),
+            ("publish",  lambda r: {"job_id": job_id, "question_result": r["question"], "montage_result": r["montage"]}),
+        ]
+
+        agents_map = {
+            "question": agent_question, "overlay": agent_overlay,
+            "montage": agent_montage, "publish": agent_publish,
+        }
+        results = {}
+        for agent_name, build_params in steps:
+            VIDEO2_JOBS[job_id]["agents"][agent_name]["status"] = "running"
+            VIDEO2_JOBS[job_id]["updated_at"] = datetime.now().isoformat()
+            _save_store(VIDEO2_JOBS_FILE, VIDEO2_JOBS)
+            try:
+                result = agents_map[agent_name].run(build_params(results))
+                results[agent_name] = result
+                VIDEO2_JOBS[job_id]["agents"][agent_name] = {"status": "done", "result": result, "error": None}
+            except Exception:
+                err = traceback.format_exc()
+                VIDEO2_JOBS[job_id]["agents"][agent_name] = {"status": "error", "result": None, "error": err}
+                VIDEO2_JOBS[job_id]["status"] = "error"
+                VIDEO2_JOBS[job_id]["updated_at"] = datetime.now().isoformat()
+                _save_store(VIDEO2_JOBS_FILE, VIDEO2_JOBS)
+                return
+
+        VIDEO2_JOBS[job_id]["status"] = "done"
+        VIDEO2_JOBS[job_id]["updated_at"] = datetime.now().isoformat()
+        _save_store(VIDEO2_JOBS_FILE, VIDEO2_JOBS)
+
+    threading.Thread(target=full_pipeline, daemon=True).start()
+    return {"ok": True, "message": "Pipeline video2 lancé"}
+
+
+@app.post("/api/video2/jobs/{job_id}/run/{agent_name}")
+def video2_run_agent(job_id: str, agent_name: str, body: dict = Body(default={})):
+    if job_id not in VIDEO2_JOBS:
+        raise HTTPException(404, "Job not found")
+    if agent_name not in VIDEO2_AGENT_ORDER:
+        raise HTTPException(400, f"Unknown agent: {agent_name}")
+    if "subject_id" in body:
+        VIDEO2_JOBS[job_id]["subject_id"] = body["subject_id"]
+        _save_store(VIDEO2_JOBS_FILE, VIDEO2_JOBS)
+    threading.Thread(target=_video2_agent_run, args=(job_id, agent_name), daemon=True).start()
     return {"ok": True, "agent": agent_name}
 
 
@@ -744,59 +1021,283 @@ def ret_delete_source(filename: str):
     return {"ok": True, "deleted": filename}
 
 
+# ─── Retournement2 workflow routes ───────────────────────────────────────────
+
+def _ret2_run_agent_sync(job_id: str, agent_name: str, params: dict):
+    import sys
+    sys.path.insert(0, str(Path(__file__).parent))
+    from workflows.retournement2 import agent_content as ret2_content
+    from workflows.retournement2 import agent_prompts as ret2_prompts
+    from workflows.retournement2 import agent_flux as ret2_flux
+    from workflows.retournement2 import agent_voice as ret2_voice
+    from workflows.retournement2 import agent_video as ret2_video
+    from workflows.retournement2 import agent_publish as ret2_publish
+    R2AGENTS = {
+        "content": ret2_content, "prompts": ret2_prompts, "flux": ret2_flux,
+        "voice": ret2_voice, "video": ret2_video, "publish": ret2_publish,
+    }
+    for a in RET2_AGENT_ORDER:
+        if a not in RET2_JOBS[job_id]["agents"]:
+            RET2_JOBS[job_id]["agents"][a] = {"status": "pending", "result": None, "error": None, "updated_at": None}
+
+    RET2_JOBS[job_id]["agents"][agent_name]["status"] = "running"
+    RET2_JOBS[job_id]["agents"][agent_name]["updated_at"] = datetime.now().isoformat()
+    RET2_JOBS[job_id]["status"] = "running"
+    RET2_JOBS[job_id]["updated_at"] = datetime.now().isoformat()
+    _save_store(RET2_JOBS_FILE, RET2_JOBS)
+    try:
+        result = R2AGENTS[agent_name].run(params)
+        RET2_JOBS[job_id]["agents"][agent_name] = {"status": "done", "result": result, "error": None, "updated_at": datetime.now().isoformat()}
+        all_done = all(RET2_JOBS[job_id]["agents"][a]["status"] == "done" for a in RET2_AGENT_ORDER)
+        RET2_JOBS[job_id]["status"] = "done" if all_done else "idle"
+    except Exception:
+        err = traceback.format_exc()
+        RET2_JOBS[job_id]["agents"][agent_name] = {"status": "error", "result": None, "error": err, "updated_at": datetime.now().isoformat()}
+        RET2_JOBS[job_id]["status"] = "error"
+    RET2_JOBS[job_id]["updated_at"] = datetime.now().isoformat()
+    _save_store(RET2_JOBS_FILE, RET2_JOBS)
+
+
+@app.post("/api/retournement2/jobs")
+def ret2_create_job():
+    job_id = f"ret2_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:6]}"
+    RET2_JOBS[job_id] = {
+        "id": job_id, "status": "idle",
+        "created_at": datetime.now().isoformat(),
+        "updated_at": datetime.now().isoformat(),
+        "agents": {a: {"status": "pending", "result": None, "error": None, "updated_at": None} for a in RET2_AGENT_ORDER},
+    }
+    _save_store(RET2_JOBS_FILE, RET2_JOBS)
+    return {"job_id": job_id}
+
+
+@app.get("/api/retournement2/jobs")
+def ret2_list_jobs():
+    RET2_JOBS.update(_load_store(RET2_JOBS_FILE))
+    return {"jobs": sorted(RET2_JOBS.values(), key=lambda x: x["created_at"], reverse=True)}
+
+
+@app.get("/api/retournement2/jobs/{job_id}")
+def ret2_get_job(job_id: str):
+    RET2_JOBS.update(_load_store(RET2_JOBS_FILE))
+    if job_id not in RET2_JOBS:
+        raise HTTPException(404, "Job not found")
+    return RET2_JOBS[job_id]
+
+
+@app.post("/api/retournement2/jobs/{job_id}/run/{agent_name}")
+def ret2_run_agent(job_id: str, agent_name: str, body: dict = Body(default={})):
+    if job_id not in RET2_JOBS:
+        raise HTTPException(404, "Job not found")
+    if agent_name not in RET2_AGENT_ORDER:
+        raise HTTPException(400, f"Agent inconnu: {agent_name}")
+
+    settings = _load_store(RET2_SETTINGS_FILE)
+    agents = RET2_JOBS[job_id]["agents"]
+
+    params = {"job_id": job_id, **body}
+
+    if agent_name == "content":
+        params["job_id"] = job_id
+
+    elif agent_name == "prompts":
+        params["content"] = (agents.get("content") or {}).get("result") or {}
+
+    elif agent_name == "flux":
+        params["content"] = (agents.get("content") or {}).get("result") or {}
+        params["prompts"] = (agents.get("prompts") or {}).get("result") or {}
+        params["flux"] = (agents.get("flux") or {}).get("result") or {}
+
+    elif agent_name == "voice":
+        params["content"] = (agents.get("content") or {}).get("result") or {}
+
+    elif agent_name == "video":
+        params["content"] = (agents.get("content") or {}).get("result") or {}
+        params["flux"] = (agents.get("flux") or {}).get("result") or {}
+        params["voice"] = (agents.get("voice") or {}).get("result") or {}
+
+    elif agent_name == "publish":
+        params["content"] = (agents.get("content") or {}).get("result") or {}
+        params["video"] = (agents.get("video") or {}).get("result") or {}
+
+    threading.Thread(target=_ret2_run_agent_sync, args=(job_id, agent_name, params), daemon=True).start()
+    return {"ok": True, "agent": agent_name}
+
+
+@app.get("/api/retournement2/settings")
+def ret2_get_settings():
+    settings = _load_store(RET2_SETTINGS_FILE)
+    return settings
+
+
+@app.post("/api/retournement2/settings")
+def ret2_save_settings(body: dict = Body(default={})):
+    settings = _load_store(RET2_SETTINGS_FILE)
+    for key in ["sources_dir"]:
+        if key in body:
+            settings[key] = body[key]
+    _save_store(RET2_SETTINGS_FILE, settings)
+    return settings
+
+
+@app.get("/api/retournement2/arcanes")
+def ret2_get_arcanes():
+    return json.loads(ARCANES_FILE.read_text())
+
+
+@app.post("/api/retournement2/arcanes")
+def ret2_save_arcanes(body: list = Body(default=[])):
+    ARCANES_FILE.write_text(json.dumps(body, ensure_ascii=False, indent=2))
+    return {"ok": True, "count": len(body)}
+
+
+@app.post("/api/retournement2/upload")
+async def ret2_upload_source(file: UploadFile = File(...)):
+    ext = Path(file.filename).suffix.lower() or ".jpg"
+    if ext not in (".jpg", ".jpeg", ".png"):
+        raise HTTPException(400, "Format non supporté — utilisez JPG ou PNG")
+
+    raw = await file.read()
+
+    MAX_BYTES = 1 * 1024 * 1024
+    if len(raw) > MAX_BYTES:
+        from PIL import Image
+        import io
+        img = Image.open(io.BytesIO(raw)).convert("RGB")
+        w, h = img.size
+        if max(w, h) > 2048:
+            ratio = 2048 / max(w, h)
+            img = img.resize((int(w * ratio), int(h * ratio)), Image.LANCZOS)
+        quality = 90
+        while quality >= 40:
+            buf = io.BytesIO()
+            img.save(buf, format="JPEG", quality=quality, optimize=True)
+            raw = buf.getvalue()
+            if len(raw) <= MAX_BYTES:
+                break
+            quality -= 10
+        stem = Path(file.filename).stem
+        filename = stem + ".jpg"
+    else:
+        filename = file.filename
+
+    dest = RET2_SOURCES_DIR / filename
+    dest.write_bytes(raw)
+    public_url = f"https://factorytiktok.duckdns.org/output/retournement2_sources/{filename}"
+    return {"filename": filename, "url": public_url, "path": str(dest)}
+
+
+@app.get("/api/retournement2/sources")
+def ret2_list_sources():
+    files = list(RET2_SOURCES_DIR.glob("*.jpg")) + list(RET2_SOURCES_DIR.glob("*.jpeg")) + list(RET2_SOURCES_DIR.glob("*.png"))
+    return {"sources": [{"filename": f.name, "url": f"https://factorytiktok.duckdns.org/output/retournement2_sources/{f.name}"} for f in sorted(files)]}
+
+
+@app.delete("/api/retournement2/sources/{filename}")
+def ret2_delete_source(filename: str):
+    dest = RET2_SOURCES_DIR / filename
+    if not dest.exists() or not dest.is_file():
+        raise HTTPException(404, "Fichier non trouvé")
+    dest.unlink()
+    return {"ok": True, "deleted": filename}
+
+
 # ─── Legal pages ─────────────────────────────────────────────────────────────
 
 @app.get("/terms")
 def terms():
     return HTMLResponse("""<!DOCTYPE html>
-<html lang="en"><head><meta charset="UTF-8">
-<title>Terms of Service — Factory</title>
-<style>body{font-family:sans-serif;max-width:800px;margin:60px auto;padding:0 20px;color:#333;line-height:1.7}h1{color:#111}h2{margin-top:2em}</style>
+<html lang="fr"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Conditions d'utilisation — Oryne</title>
+<style>body{font-family:sans-serif;max-width:800px;margin:60px auto;padding:0 20px;color:#333;line-height:1.7}h1{color:#111}h2{margin-top:2em}a{color:#6c5ce7}</style>
 </head><body>
-<h1>Terms of Service</h1>
-<p><em>Last updated: March 2026</em></p>
-<h2>1. Service Description</h2>
-<p>Factory is a content creation tool that generates oracle card posts and publishes them to TikTok via the TikTok Content Posting API. The service is operated for a single creator account.</p>
-<h2>2. Use of TikTok Integration</h2>
-<p>By connecting your TikTok account, you authorize this application to upload and publish video content on your behalf using the TikTok Content Posting API. You may revoke this access at any time through your TikTok account settings.</p>
-<h2>3. Content</h2>
-<p>All content published through this service is AI-generated oracle/tarot card content for entertainment purposes only. It does not constitute professional advice of any kind.</p>
-<h2>4. Data</h2>
-<p>We store only the OAuth access token required to publish content. No personal data beyond the TikTok Open ID is retained. Tokens are stored securely on our server and never shared with third parties.</p>
-<h2>5. Limitation of Liability</h2>
-<p>This service is provided as-is. We are not liable for any damages arising from use of this service or published content.</p>
+<h1>Conditions d'utilisation</h1>
+<p><em>Dernière mise à jour : mars 2026</em></p>
+<h2>1. Description du service</h2>
+<p>Oryne est un outil de création de contenu automatisé qui génère des publications tarot/voyance et les publie sur TikTok, Facebook et Instagram via leurs APIs officielles. Le service est opéré pour un compte créateur unique.</p>
+<h2>2. Utilisation des intégrations réseaux sociaux</h2>
+<p>En connectant votre compte TikTok, Facebook ou Instagram, vous autorisez cette application à publier du contenu en votre nom via les APIs officielles de ces plateformes. Vous pouvez révoquer cet accès à tout moment depuis les paramètres de chaque plateforme.</p>
+<h2>3. Contenu</h2>
+<p>Tout le contenu publié via ce service est généré par intelligence artificielle à des fins de divertissement uniquement (tarot, oracle, voyance). Il ne constitue en aucun cas un conseil professionnel.</p>
+<h2>4. Données</h2>
+<p>Nous stockons uniquement les tokens OAuth nécessaires à la publication de contenu. Aucune donnée personnelle au-delà des identifiants de compte n'est conservée. Les tokens sont stockés de manière sécurisée et ne sont jamais partagés avec des tiers.</p>
+<h2>5. Limitation de responsabilité</h2>
+<p>Ce service est fourni tel quel. Nous ne sommes pas responsables des dommages résultant de l'utilisation de ce service ou du contenu publié.</p>
 <h2>6. Contact</h2>
-<p>For any questions, contact the operator of this service.</p>
+<p>Pour toute question : <a href="mailto:contact@oryne.fr">contact@oryne.fr</a></p>
 </body></html>""")
 
 
 @app.get("/privacy")
 def privacy():
     return HTMLResponse("""<!DOCTYPE html>
-<html lang="en"><head><meta charset="UTF-8">
-<title>Privacy Policy — Factory</title>
-<style>body{font-family:sans-serif;max-width:800px;margin:60px auto;padding:0 20px;color:#333;line-height:1.7}h1{color:#111}h2{margin-top:2em}</style>
+<html lang="fr"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Politique de confidentialité — Oryne</title>
+<style>body{font-family:sans-serif;max-width:800px;margin:60px auto;padding:0 20px;color:#333;line-height:1.7}h1{color:#111}h2{margin-top:2em}a{color:#6c5ce7}</style>
 </head><body>
-<h1>Privacy Policy</h1>
-<p><em>Last updated: March 2026</em></p>
-<h2>1. Data We Collect</h2>
-<p>When you authorize this application via TikTok OAuth, we receive and store:</p>
+<h1>Politique de confidentialité</h1>
+<p><em>Dernière mise à jour : mars 2026</em></p>
+<h2>1. Données collectées</h2>
+<p>Lorsque vous autorisez cette application via OAuth (TikTok, Facebook ou Instagram), nous recevons et stockons :</p>
 <ul>
-<li>Your TikTok Open ID (anonymous identifier)</li>
-<li>An OAuth access token and refresh token</li>
-<li>The authorized scopes (video.upload, video.publish)</li>
+<li>Un identifiant anonyme de compte (Open ID / Page ID / Instagram Business ID)</li>
+<li>Un token d'accès OAuth et un token de rafraîchissement</li>
+<li>Les scopes autorisés (publication de contenu uniquement)</li>
 </ul>
-<p>We do not collect your name, email, profile picture, follower list, or any other personal information.</p>
-<h2>2. How We Use Your Data</h2>
-<p>The OAuth token is used solely to publish AI-generated content to your TikTok account via the Content Posting API. It is not used for any other purpose.</p>
-<h2>3. Data Storage</h2>
-<p>Tokens are stored in a JSON file on a private server. They are never transmitted to third parties.</p>
-<h2>4. Data Retention</h2>
-<p>Tokens are retained until you revoke access via TikTok settings or request deletion. To delete your data, revoke access in your TikTok account under <em>Settings → Security → Authorized Apps</em>.</p>
-<h2>5. Third Parties</h2>
-<p>This application interacts only with TikTok's official API (open.tiktokapis.com). No data is shared with any other third party.</p>
-<h2>6. Contact</h2>
-<p>For privacy requests, contact the operator of this service.</p>
+<p>Nous ne collectons pas votre nom, email, photo de profil, liste d'abonnés ou toute autre information personnelle.</p>
+<h2>2. Utilisation des données</h2>
+<p>Les tokens OAuth sont utilisés exclusivement pour publier du contenu généré par IA sur vos comptes via les APIs officielles. Ils ne sont utilisés à aucune autre fin.</p>
+<h2>3. Stockage des données</h2>
+<p>Les tokens sont stockés dans des fichiers sécurisés sur un serveur privé (accès restreint, chmod 600). Ils ne sont jamais transmis à des tiers.</p>
+<h2>4. Conservation des données</h2>
+<p>Les tokens sont conservés jusqu'à révocation de l'accès ou demande de suppression. Pour supprimer vos données :</p>
+<ul>
+<li>TikTok : Paramètres → Sécurité → Applications autorisées</li>
+<li>Facebook/Instagram : Paramètres → Applications et sites web</li>
+<li>Ou via notre <a href="/data-deletion">page de suppression des données</a></li>
+</ul>
+<h2>5. Plateformes tierces</h2>
+<p>Cette application interagit uniquement avec les APIs officielles de TikTok (open.tiktokapis.com), Meta/Facebook (graph.facebook.com) et Instagram. Aucune donnée n'est partagée avec d'autres tiers.</p>
+<h2>6. Vos droits (RGPD)</h2>
+<p>Conformément au RGPD, vous disposez d'un droit d'accès, de rectification et de suppression de vos données. Pour exercer ces droits : <a href="mailto:contact@oryne.fr">contact@oryne.fr</a></p>
+<h2>7. Contact</h2>
+<p><a href="mailto:contact@oryne.fr">contact@oryne.fr</a></p>
+</body></html>""")
+
+
+@app.get("/data-deletion")
+def data_deletion():
+    return HTMLResponse("""<!DOCTYPE html>
+<html lang="fr"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Suppression des données — Oryne</title>
+<style>body{font-family:sans-serif;max-width:800px;margin:60px auto;padding:0 20px;color:#333;line-height:1.7}h1{color:#111}h2{margin-top:2em}.box{background:#f4f0ff;border-left:4px solid #6c5ce7;padding:16px 20px;border-radius:4px;margin:20px 0}a{color:#6c5ce7}</style>
+</head><body>
+<h1>Suppression des données utilisateur</h1>
+<p><em>Dernière mise à jour : mars 2026</em></p>
+<div class="box">
+<p>Pour demander la suppression de vos données associées à l'application Oryne, vous pouvez :</p>
+</div>
+<h2>Option 1 — Révocation directe (recommandé)</h2>
+<p>Révoquez l'accès directement depuis la plateforme concernée :</p>
+<ul>
+<li><strong>TikTok</strong> : Paramètres et confidentialité → Sécurité → Applications autorisées → Oryne → Révoquer</li>
+<li><strong>Facebook</strong> : Paramètres → Applications et sites web → Oryne → Supprimer</li>
+<li><strong>Instagram</strong> : Paramètres → Sécurité → Applications autorisées → Oryne → Supprimer</li>
+</ul>
+<p>Cette action supprime immédiatement notre accès et invalide les tokens stockés.</p>
+<h2>Option 2 — Demande par email</h2>
+<p>Envoyez un email à <a href="mailto:contact@oryne.fr">contact@oryne.fr</a> avec comme sujet "Suppression données" en précisant la plateforme concernée. Nous traiterons votre demande sous 72 heures.</p>
+<h2>Données supprimées</h2>
+<p>Suite à votre demande, nous supprimerons :</p>
+<ul>
+<li>Votre token d'accès OAuth</li>
+<li>Votre token de rafraîchissement</li>
+<li>Votre identifiant de compte</li>
+</ul>
+<p>Les contenus déjà publiés sur les plateformes sociales ne peuvent pas être supprimés par ce biais — utilisez les outils natifs de chaque plateforme.</p>
 </body></html>""")
 
 @app.post("/api/jobs")
@@ -1111,7 +1612,9 @@ _WF_DIRS = {
     "prediction":  ["output/prediction"],
     "pendule":     ["output/pendule"],
     "retournement":["output/retournement", "output/retournement_sources"],
+    "retournement2":["output/retournement2", "output/retournement2_sources"],
     "video":       ["output/video_jobs", "output/video_refs", "output/video_assets"],
+    "video2":      ["output/video2_jobs", "output/video2_refs", "output/video2_assets"],
     "satisfying":  ["output/satisfying"],
     "histoire":    ["output/histoire"],
     "histoire2":   ["output/histoire2"],
@@ -1440,8 +1943,192 @@ def hist2_run_agent(job_id: str, agent_name: str):
 
 # ── Workflow Enable/Disable ──────────────────────────────────────────────────
 
+# ─── Tarot Deck workflow ─────────────────────────────────────────────────────
+
+TAROT_JOBS_FILE = DATA_DIR / "tarot_deck_jobs.json"
+TAROT_JOBS: dict[str, dict] = _load_store(TAROT_JOBS_FILE)
+_reset_running_jobs(TAROT_JOBS)
+TAROT_AGENT_ORDER = ["prompt", "image"]
+TAROT_OUTPUT_DIR = Path(__file__).parent.parent / "output" / "tarot_deck"
+TAROT_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+TAROT_DATA_DIR = Path(__file__).parent.parent / "data" / "decks"
+TAROT_DATA_DIR.mkdir(parents=True, exist_ok=True)
+
+
+def _tarot_run_agent_sync(job_id: str, agent_name: str, params: dict):
+    import sys
+    sys.path.insert(0, str(Path(__file__).parent))
+    from workflows.tarot_deck import agent_prompt as td_prompt
+    from workflows.tarot_deck import agent_image as td_image
+    TAGENTS = {"prompt": td_prompt, "image": td_image}
+
+    for a in TAROT_AGENT_ORDER:
+        if a not in TAROT_JOBS[job_id]["agents"]:
+            TAROT_JOBS[job_id]["agents"][a] = {"status": "pending", "result": None, "error": None, "updated_at": None}
+
+    TAROT_JOBS[job_id]["agents"][agent_name]["status"] = "running"
+    TAROT_JOBS[job_id]["agents"][agent_name]["updated_at"] = datetime.now().isoformat()
+    TAROT_JOBS[job_id]["status"] = "running"
+    TAROT_JOBS[job_id]["updated_at"] = datetime.now().isoformat()
+    _save_store(TAROT_JOBS_FILE, TAROT_JOBS)
+    try:
+        result = TAGENTS[agent_name].run(params)
+        TAROT_JOBS[job_id]["agents"][agent_name] = {"status": "done", "result": result, "error": None, "updated_at": datetime.now().isoformat()}
+        all_done = all(TAROT_JOBS[job_id]["agents"][a]["status"] == "done" for a in TAROT_AGENT_ORDER)
+        TAROT_JOBS[job_id]["status"] = "done" if all_done else "idle"
+    except Exception:
+        err = traceback.format_exc()
+        TAROT_JOBS[job_id]["agents"][agent_name] = {"status": "error", "result": None, "error": err, "updated_at": datetime.now().isoformat()}
+        TAROT_JOBS[job_id]["status"] = "error"
+    TAROT_JOBS[job_id]["updated_at"] = datetime.now().isoformat()
+    _save_store(TAROT_JOBS_FILE, TAROT_JOBS)
+
+
+@app.post("/api/tarot/jobs")
+def tarot_create_job(body: dict = Body(default={})):
+    job_id = f"tarot_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:6]}"
+    TAROT_JOBS[job_id] = {
+        "id": job_id, "status": "idle",
+        "created_at": datetime.now().isoformat(),
+        "updated_at": datetime.now().isoformat(),
+        "card_num": body.get("card_num", "00"),
+        "deck_id": body.get("deck_id", "deck_01"),
+        "style": body.get("style", ""),
+        "agents": {a: {"status": "pending", "result": None, "error": None, "updated_at": None} for a in TAROT_AGENT_ORDER},
+    }
+    _save_store(TAROT_JOBS_FILE, TAROT_JOBS)
+    return {"job_id": job_id}
+
+
+@app.get("/api/tarot/jobs")
+def tarot_list_jobs():
+    TAROT_JOBS.update(_load_store(TAROT_JOBS_FILE))
+    return {"jobs": sorted(TAROT_JOBS.values(), key=lambda x: x["created_at"], reverse=True)}
+
+
+@app.get("/api/tarot/jobs/{job_id}")
+def tarot_get_job(job_id: str):
+    TAROT_JOBS.update(_load_store(TAROT_JOBS_FILE))
+    if job_id not in TAROT_JOBS:
+        raise HTTPException(404, "Job not found")
+    return TAROT_JOBS[job_id]
+
+
+@app.post("/api/tarot/jobs/{job_id}/run/{agent_name}")
+def tarot_run_agent(job_id: str, agent_name: str, body: dict = Body(default={})):
+    if job_id not in TAROT_JOBS:
+        raise HTTPException(404, "Job not found")
+    if agent_name not in TAROT_AGENT_ORDER:
+        raise HTTPException(400, f"Agent inconnu: {agent_name}")
+
+    job = TAROT_JOBS[job_id]
+    agents = job["agents"]
+    params = {
+        "job_id": job_id,
+        "card_num": job.get("card_num", "00"),
+        "deck_id": job.get("deck_id", "deck_01"),
+        "style": job.get("style", ""),
+    }
+
+    if agent_name == "image":
+        params["prompt_result"] = (agents.get("prompt") or {}).get("result") or {}
+
+    params.update(body)
+    threading.Thread(target=_tarot_run_agent_sync, args=(job_id, agent_name, params), daemon=True).start()
+    return {"ok": True, "agent": agent_name}
+
+
+@app.get("/api/tarot/cards")
+def tarot_list_cards():
+    from workflows.tarot_deck.cards import MAJOR_ARCANA, BACK_CARD
+    all_cards = MAJOR_ARCANA + [BACK_CARD]
+    cards = []
+    for c in all_cards:
+        ref_path = TAROT_DATA_DIR / "rider-waite" / c["ref_file"]
+        cards.append({
+            **c,
+            "ref_url": f"https://factorytiktok.duckdns.org/data/decks/rider-waite/{c['ref_file']}" if ref_path.exists() else None,
+        })
+    return {"cards": cards}
+
+
+@app.get("/api/tarot/decks")
+def tarot_list_decks():
+    decks = []
+    # Decks = dossiers dans output/tarot_deck (pas les sources rider-waite)
+    for d in TAROT_OUTPUT_DIR.iterdir():
+        if d.is_dir():
+            # Compter uniquement les cartes finales (png ou jpg sans _raw)
+            count = len([f for f in d.glob("*.png")]) + len([f for f in d.glob("*.jpg") if "_raw" not in f.name])
+            decks.append({"id": d.name, "name": d.name, "card_count": count})
+    return {"decks": sorted(decks, key=lambda x: x["id"])}
+
+
+@app.get("/api/tarot/deck/{deck_id}/export")
+def tarot_deck_export(deck_id: str, mode: str = "final"):
+    """Export du deck en ZIP. mode=final (PNG) ou mode=raw (JPG bruts)."""
+    import zipfile, io
+    from workflows.tarot_deck.cards import MAJOR_ARCANA, BACK_CARD
+    all_cards = MAJOR_ARCANA + [BACK_CARD]
+    output_dir = TAROT_OUTPUT_DIR / deck_id
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        for card in all_cards:
+            nom_safe = card["nom_fr"].replace(" ", "_").replace("'", "").replace("é","e").replace("è","e").replace("ê","e").replace("à","a").replace("â","a").replace("î","i").replace("ô","o").replace("û","u").replace("ç","c").replace("É","E").replace("È","E").replace("Ê","E")
+            if mode == "raw":
+                raw = output_dir / f"{card['num']}_raw.jpg"
+                if raw.exists():
+                    zf.write(raw, f"{deck_id}_{nom_safe}_brut.jpg")
+            else:
+                png = output_dir / f"{card['num']}.png"
+                jpg = output_dir / f"{card['num']}.jpg"
+                if png.exists():
+                    zf.write(png, f"{deck_id}_{nom_safe}.png")
+                elif jpg.exists():
+                    zf.write(jpg, f"{deck_id}_{nom_safe}.jpg")
+    buf.seek(0)
+    from fastapi.responses import StreamingResponse
+    return StreamingResponse(
+        buf,
+        media_type="application/zip",
+        headers={"Content-Disposition": f'attachment; filename="{deck_id}_{mode}.zip"'}
+    )
+
+
+@app.get("/api/tarot/deck/{deck_id}/cards")
+def tarot_deck_cards(deck_id: str):
+    """Retourne les cartes générées pour un deck."""
+    from workflows.tarot_deck.cards import MAJOR_ARCANA, BACK_CARD
+    all_cards = MAJOR_ARCANA + [BACK_CARD]
+    output_dir = TAROT_OUTPUT_DIR / deck_id
+    BASE = "https://factorytiktok.duckdns.org"
+    result = []
+    for card in all_cards:
+        png_path = output_dir / f"{card['num']}.png"
+        jpg_path = output_dir / f"{card['num']}.jpg"
+        raw_path = output_dir / f"{card['num']}_raw.jpg"
+        generated = png_path.exists() or jpg_path.exists()
+        image_url = None
+        raw_url = None
+        if png_path.exists():
+            image_url = f"{BASE}/output/tarot_deck/{deck_id}/{card['num']}.png"
+        elif jpg_path.exists():
+            image_url = f"{BASE}/output/tarot_deck/{deck_id}/{card['num']}.jpg"
+        if raw_path.exists():
+            raw_url = f"{BASE}/output/tarot_deck/{deck_id}/{card['num']}_raw.jpg"
+        result.append({
+            **card,
+            "generated": generated,
+            "image_url": image_url,
+            "raw_url": raw_url,
+        })
+    return {"deck_id": deck_id, "cards": result}
+
+
+# ─── Workflows enabled ────────────────────────────────────────────────────────
+
 WORKFLOWS_ENABLED_FILE = DATA_DIR / "workflows_enabled.json"
-KNOWN_WORKFLOWS = ["prediction", "video", "histoire", "histoire2", "retournement", "satisfying", "pendule"]
+KNOWN_WORKFLOWS = ["prediction", "video", "video2", "histoire", "histoire2", "retournement", "retournement2", "satisfying", "pendule"]
 
 def _load_workflows_enabled() -> dict:
     if WORKFLOWS_ENABLED_FILE.exists():
